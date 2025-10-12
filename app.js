@@ -304,6 +304,9 @@ window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); defe
     populateFilters();
 
     const st = loadState();
+    // …既存の初期化が終わった直後に
+scheduleCountdownRefresh();
+
     if (st) {
       stats = st.stats || stats;
       if (st.currentTag) els.tagFilter.value = st.currentTag;
