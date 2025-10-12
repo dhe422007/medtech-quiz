@@ -39,6 +39,38 @@ const els = {
   finalAccuracy: document.getElementById('finalAccuracy'),
   backHomeBtn: document.getElementById('backHomeBtn'),
 };
+// ===== 試験日カウントダウン（JST固定） =====
+function updateCountdown() {
+  // 日本時間の「今」
+  const now = new Date();
+  // 次回試験日（日本時間の0時基準）
+  const exam = new Date('2026-02-18T00:00:00+09:00');
+
+  const msPerDay = 24 * 60 * 60 * 1000;
+  // 切り上げで「あと◯日」
+  let days = Math.ceil((exam.getTime() - now.getTime()) / msPerDay);
+  if (days < 0) days = 0;
+
+  const el = document.getElementById('countdown');
+  if (el) el.textContent = `残り ${days} 日`;
+}
+
+// 日付が変わったら自動で更新（最長24hごと）
+function scheduleCountdownRefresh() {
+  updateCountdown();
+  // 次の深夜までのミリ秒を計算
+  const now = new Date();
+  const next = new Date(now);
+  next.setDate(now.getDate() + 1);
+  next.setHours(0,0,0,0);
+  const wait = next.getTime() - now.getTime();
+  setTimeout(() => {
+    updateCountdown();
+    // 以後は24時間ごと
+    setInterval(updateCountdown, 24*60*60*1000);
+  }, wait);
+}
+
 
 const shuffle = (arr) => {
   const a = arr.slice();
