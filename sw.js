@@ -1,5 +1,5 @@
 // sw.js optimized (Network-First for questions.json, Stale-While-Revalidate for others)
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const STATIC_CACHE = `quiz-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `quiz-runtime-${CACHE_VERSION}`;
 
