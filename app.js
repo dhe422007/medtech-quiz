@@ -166,6 +166,9 @@ const gradeCurrent = () => {
   }
   els.explain.classList.remove('hidden');
   updateStatsUI();
+    // 回答日時を記録（端末ローカル保存）
+  const nowISO = new Date().toISOString();
+  localStorage.setItem('quiz_lastAnswered', nowISO);
 
   answered = true;
   els.nextBtn.textContent = (index < order.length-1) ? '次へ ▶' : '結果を見る';
@@ -267,6 +270,11 @@ const next = () => {
   } else {
     const acc = stats.totalAnswered ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100) : 0;
     els.finalAccuracy.textContent = `${acc}%`;
+    // 結果ページに今回の回答日時を表示（JST）
+    const jp = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+    const fd = document.getElementById('finalDate');
+    if (fd) fd.textContent = `回答日時：${jp}`;
+    
     showView('end');
   }
 };
@@ -314,6 +322,18 @@ document.getElementById('hardResetBtn')?.addEventListener('click', () => {
   try {
     questions = await loadJSON('./questions.json?v=1');
     populateFilters();
+        // トップページに最終回答日時を表示（あれば）
+    const last = localStorage.getItem('quiz_lastAnswered');
+    const laEl = document.getElementById('lastAnswered');
+    if (laEl) {
+      if (last) {
+        const d = new Date(last);
+        laEl.textContent = `最終回答日時：${d.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
+      } else {
+        laEl.textContent = '（まだ回答履歴はありません）';
+      }
+    }
+
 
     const st = loadState();
     // …既存の初期化が終わった直後に
