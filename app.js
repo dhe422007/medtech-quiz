@@ -298,6 +298,18 @@ els.backHomeBtn.addEventListener('click', () => { showView('top'); });
 
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
 
+// ここは「イベント登録のブロック」の直下あたりに追加してください
+document.getElementById('hardResetBtn')?.addEventListener('click', () => {
+  if (!confirm('この端末に保存された成績・ブックマーク・間違い記録をすべて削除します。よろしいですか？')) return;
+  // このアプリが使っているキーだけを削除
+  localStorage.removeItem(STATE_KEY);       // 'quiz_state_v3'
+  localStorage.removeItem(BOOKMARK_KEY);    // 'quiz_bookmarks_v1'
+  localStorage.removeItem(WRONG_KEY);       // 'quiz_wrongs_v1'
+  alert('保存データをすべて削除しました。ページを再読み込みします。');
+  location.reload();
+});
+
+
 (async function init(){
   try {
     questions = await loadJSON('./questions.json?v=1');
