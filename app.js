@@ -2,6 +2,8 @@
 const STATE_KEY = 'quiz_state_v3';
 const BOOKMARK_KEY = 'quiz_bookmarks_v1';
 const WRONG_KEY = 'quiz_wrongs_v1';
+const STATS_BY_TAG_KEY = 'quiz_stats_by_tag_v1';
+
 
 let questions = [];
 let order = [];         // filtered/shuffled question indexes
@@ -38,6 +40,9 @@ const els = {
   bookmarkBtn: document.getElementById('bookmarkBtn'),
   finalAccuracy: document.getElementById('finalAccuracy'),
   backHomeBtn: document.getElementById('backHomeBtn'),
+    resumeBtn: document.getElementById('resumeBtn'),
+  resumeInfo: document.getElementById('resumeInfo'),
+
 };
 // ===== 試験日カウントダウン（JST固定） =====
 function updateCountdown() {
