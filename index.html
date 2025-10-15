@@ -40,6 +40,14 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:24px}
 .stats{display:flex;gap:12px;color:var(--muted);font-size:14px}
 .view{display:none}
 .view.active{display:block}
+  /* --- 共通お知らせ用: 中央寄せ・控えめカラー --- */
+.notice{
+  text-align:center;
+  font-size:13px;
+  color: var(--muted);
+  margin: 8px 0;
+}
+
 </style>
 <!-- Google Analytics 4 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-1VQRG07NV5"></script>
@@ -78,9 +86,10 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:24px}
 </div>
     <div class="progress"><span id="progressBar"></span></div>
   </div>
-  <div style="margin:8px 0; font-size:13px; color:#64748b;">
+  <div class="notice">
   ※ 成績はこの端末の中だけに保存されます（サーバには送信されません）。
 </div>
+
 
 </header>
 
