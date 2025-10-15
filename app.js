@@ -184,6 +184,19 @@ const gradeCurrent = () => {
   els.nextBtn.textContent = (index < order.length-1) ? '次へ ▶' : '結果を見る';
   saveState();
 };
+  // 分野別の累積統計をローカルストレージに保存
+  const sbt = getStatsByTag();
+  (q.tags || []).forEach(t => {
+    if (!sbt[t]) sbt[t] = { answered: 0, correct: 0 };
+    sbt[t].answered += 1;
+    if (isAllMatch) sbt[t].correct += 1;
+  });
+  setStatsByTag(sbt);
+
+  // 最終回答日時を保存
+  const nowISO = new Date().toISOString();
+  localStorage.setItem('quiz_lastAnswered', nowISO);
+
 
 const renderQuestion = () => {
   const q = questions[order[index]];
