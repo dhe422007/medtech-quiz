@@ -2,8 +2,7 @@
 const STATE_KEY = 'quiz_state_v3';
 const BOOKMARK_KEY = 'quiz_bookmarks_v1';
 const WRONG_KEY = 'quiz_wrongs_v1';
-const STATS_BY_TAG_KEY = 'quiz_stats_by_tag_v1';
-
+const STATS_BY_TAG_KEY = 'quiz_stats_by_tag_v1'; // ★分野別累積
 
 let questions = [];
 let order = [];         // filtered/shuffled question indexes
@@ -40,30 +39,23 @@ const els = {
   bookmarkBtn: document.getElementById('bookmarkBtn'),
   finalAccuracy: document.getElementById('finalAccuracy'),
   backHomeBtn: document.getElementById('backHomeBtn'),
-    resumeBtn: document.getElementById('resumeBtn'),
+  // ★追記（トップの“続きから”UI）
+  resumeBtn: document.getElementById('resumeBtn'),
   resumeInfo: document.getElementById('resumeInfo'),
-
 };
+
 // ===== 試験日カウントダウン（JST固定） =====
 function updateCountdown() {
-  // 日本時間の「今」
   const now = new Date();
-  // 次回試験日（日本時間の0時基準）
-  const exam = new Date('2026-02-18T00:00:00+09:00');
-
+  const exam = new Date('2026-02-18T00:00:00+09:00'); // 次回試験日
   const msPerDay = 24 * 60 * 60 * 1000;
-  // 切り上げで「あと◯日」
   let days = Math.ceil((exam.getTime() - now.getTime()) / msPerDay);
   if (days < 0) days = 0;
-
   const el = document.getElementById('countdown');
   if (el) el.textContent = `残り ${days} 日`;
 }
-
-// 日付が変わったら自動で更新（最長24hごと）
 function scheduleCountdownRefresh() {
   updateCountdown();
-  // 次の深夜までのミリ秒を計算
   const now = new Date();
   const next = new Date(now);
   next.setDate(now.getDate() + 1);
@@ -71,12 +63,11 @@ function scheduleCountdownRefresh() {
   const wait = next.getTime() - now.getTime();
   setTimeout(() => {
     updateCountdown();
-    // 以後は24時間ごと
     setInterval(updateCountdown, 24*60*60*1000);
   }, wait);
 }
 
-
+// ===== 共通ユーティリティ =====
 const shuffle = (arr) => {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -85,13 +76,13 @@ const shuffle = (arr) => {
   }
   return a;
 };
-
 const loadJSON = async (path) => {
   const res = await fetch(path);
   if (!res.ok) throw new Error('failed to load ' + path);
   return await res.json();
 };
 
+// ===== 永続保存 =====
 let stats = { totalAnswered: 0, totalCorrect: 0, streak: 0 };
 
 const saveState = () => {
@@ -108,17 +99,14 @@ const loadState = () => {
   if (!s) return null;
   try { return JSON.parse(s); } catch { return null; }
 };
-
 const getBookmarks = () => new Set(JSON.parse(localStorage.getItem(BOOKMARK_KEY) || '[]'));
 const setBookmarks = (set) => localStorage.setItem(BOOKMARK_KEY, JSON.stringify([...set]));
 const getWrongs = () => new Set(JSON.parse(localStorage.getItem(WRONG_KEY) || '[]'));
 const setWrongs = (set) => localStorage.setItem(WRONG_KEY, JSON.stringify([...set]));
-
-// 分野別累積データの保存・取得
 const getStatsByTag = () => JSON.parse(localStorage.getItem(STATS_BY_TAG_KEY) || '{}');
 const setStatsByTag = (obj) => localStorage.setItem(STATS_BY_TAG_KEY, JSON.stringify(obj));
 
-
+// ===== UI更新 =====
 const updateStatsUI = () => {
   els.progressNum.textContent = `${Math.min(index+1, Math.max(order.length,1))}/${order.length}`;
   const acc = stats.totalAnswered ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100) : 0;
@@ -127,7 +115,6 @@ const updateStatsUI = () => {
   const percent = Math.round(((index+1)/Math.max(order.length,1))*100);
   els.progressBar.style.width = percent + '%';
 };
-
 const renderTags = (q) => {
   els.tagsWrap.innerHTML = '';
   (q.tags || []).forEach(t => {
@@ -137,7 +124,6 @@ const renderTags = (q) => {
     els.tagsWrap.appendChild(span);
   });
 };
-
 const isYearTag = (t) => /^\d{4}$/.test(String(t).trim());
 const asCorrectArray = (ans) => Array.isArray(ans) ? ans.slice().map(Number) : [Number(ans)];
 
@@ -150,6 +136,7 @@ const showView = (name) => {
   if (name==='end') els.viewEnd.classList.add('active');
 };
 
+// ===== 採点 =====
 const gradeCurrent = () => {
   const q = questions[order[index]];
   const correctArray = asCorrectArray(q.answerIndex).sort((a,b)=>a-b);
@@ -176,15 +163,8 @@ const gradeCurrent = () => {
   }
   els.explain.classList.remove('hidden');
   updateStatsUI();
-    // 回答日時を記録（端末ローカル保存）
-  const nowISO = new Date().toISOString();
-  localStorage.setItem('quiz_lastAnswered', nowISO);
 
-  answered = true;
-  els.nextBtn.textContent = (index < order.length-1) ? '次へ ▶' : '結果を見る';
-  saveState();
-};
-  // 分野別の累積統計をローカルストレージに保存
+  // ★ 分野別累積 & 最終回答日時
   const sbt = getStatsByTag();
   (q.tags || []).forEach(t => {
     if (!sbt[t]) sbt[t] = { answered: 0, correct: 0 };
@@ -192,12 +172,14 @@ const gradeCurrent = () => {
     if (isAllMatch) sbt[t].correct += 1;
   });
   setStatsByTag(sbt);
+  localStorage.setItem('quiz_lastAnswered', new Date().toISOString());
 
-  // 最終回答日時を保存
-  const nowISO = new Date().toISOString();
-  localStorage.setItem('quiz_lastAnswered', nowISO);
+  answered = true;
+  els.nextBtn.textContent = (index < order.length-1) ? '次へ ▶' : '結果を見る';
+  saveState();
+};
 
-
+// ===== 出題描画 =====
 const renderQuestion = () => {
   const q = questions[order[index]];
   els.qid.textContent = q.id || `Q${order[index]+1}`;
@@ -228,7 +210,20 @@ const renderQuestion = () => {
   shuffled.forEach(i => {
     const btn = document.createElement('button');
     btn.className = 'choice';
-    btn.textContent = q.choices[i];
+    // 画像選択肢にも対応（テキスト/画像を自動判定）
+    const val = q.choices[i];
+    if (typeof val === 'string' && /\.(jpg|jpeg|png|webp|gif)$/i.test(val)) {
+      btn.textContent = '';
+      const img = document.createElement('img');
+      img.src = val;
+      img.alt = `choice${i+1}`;
+      img.style.maxWidth = '100%';
+      img.style.height = 'auto';
+      btn.appendChild(img);
+    } else {
+      btn.textContent = val;
+    }
+
     btn.dataset.index = i;
     btn.addEventListener('click', () => {
       if (answered) return;
@@ -246,6 +241,7 @@ const renderQuestion = () => {
   saveState();
 };
 
+// ===== フィルタ =====
 const applyFilter = () => {
   const tagSel  = els.tagFilter.value;
   const yearSel = els.yearFilter.value;
@@ -270,21 +266,19 @@ const applyFilter = () => {
   order = base;
   index = 0;
 };
-
 const populateFilters = () => {
   const yearSet = new Set();
   const tagSet = new Set();
   questions.forEach(q => (q.tags||[]).forEach(t => (isYearTag(t)?yearSet:tagSet).add(String(t))));
-
   const curTag = els.tagFilter.value;
   els.tagFilter.innerHTML = '<option value="">全分野</option>' + [...tagSet].sort().map(t=>`<option value="${t}">${t}</option>`).join('');
   if ([...tagSet].includes(curTag)) els.tagFilter.value = curTag;
-
   const curYear = els.yearFilter.value;
   els.yearFilter.innerHTML = '<option value="">全年度</option>' + [...yearSet].sort().map(y=>`<option value="${y}">${y}</option>`).join('');
   if ([...yearSet].includes(curYear)) els.yearFilter.value = curYear;
 };
 
+// ===== ナビゲーション =====
 const next = () => {
   if (!answered) { gradeCurrent(); return; }
   if (index < order.length - 1) {
@@ -293,16 +287,16 @@ const next = () => {
   } else {
     const acc = stats.totalAnswered ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100) : 0;
     els.finalAccuracy.textContent = `${acc}%`;
-    // 結果ページに今回の回答日時を表示（JST）
+    // ★ 結果ページに今回の回答日時（JST）
     const jp = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
     const fd = document.getElementById('finalDate');
     if (fd) fd.textContent = `回答日時：${jp}`;
-    
     showView('end');
   }
 };
 const prev = () => { if (index > 0) { index -= 1; renderQuestion(); } };
 
+// ===== イベント登録 =====
 els.startBtn.addEventListener('click', () => {
   mode = els.modeSelect.value;
   applyFilter();
@@ -312,13 +306,11 @@ els.startBtn.addEventListener('click', () => {
   showView('quiz');
   renderQuestion();
 });
-
 els.shuffleBtn.addEventListener('click', () => {
   order = shuffle(order);
   index = 0;
   if (els.viewQuiz.classList.contains('active')) renderQuestion();
 });
-
 els.prevBtn.addEventListener('click', prev);
 els.nextBtn.addEventListener('click', next);
 els.modeSelect.addEventListener('change', (e) => { mode = e.target.value; if (els.viewQuiz.classList.contains('active')) { applyFilter(); renderQuestion(); }});
@@ -326,53 +318,32 @@ els.tagFilter.addEventListener('change', () => { if (els.viewQuiz.classList.cont
 els.yearFilter.addEventListener('change', () => { if (els.viewQuiz.classList.contains('active')) { applyFilter(); renderQuestion(); }});
 els.bookmarkBtn.addEventListener('click', () => { const q = questions[order[index]]; const b = getBookmarks(); if (b.has(q.id)) b.delete(q.id); else b.add(q.id); setBookmarks(b); renderQuestion(); });
 els.backHomeBtn.addEventListener('click', () => { showView('top'); });
-// ===== 前回の続きから再開ボタン =====
 els.resumeBtn?.addEventListener('click', () => {
   const st = loadState();
   if (!st) { alert('前回のデータが見つかりません。'); return; }
-
-  // UIの状態を復元
   stats = st.stats || stats;
   mode = st.mode || 'all';
   els.modeSelect.value = mode;
   if (st.currentTag) els.tagFilter.value = st.currentTag;
   if (st.currentYear) els.yearFilter.value = st.currentYear;
-
-  // フィルタを適用しておく（データ整合性の確保）
   applyFilter();
-
-  // 保存していた出題順をそのまま使う（存在すれば）
   if (Array.isArray(st.order) && st.order.length > 0) {
     order = st.order;
   }
-
-  // 位置を復元
   index = Math.min(st.index || 0, Math.max(order.length - 1, 0));
-
   showView('quiz');
   renderQuestion();
 });
 
-
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
 
-// ここは「イベント登録のブロック」の直下あたりに追加してください
-document.getElementById('hardResetBtn')?.addEventListener('click', () => {
-  if (!confirm('この端末に保存された成績・ブックマーク・間違い記録をすべて削除します。よろしいですか？')) return;
-  // このアプリが使っているキーだけを削除
-  localStorage.removeItem(STATE_KEY);       // 'quiz_state_v3'
-  localStorage.removeItem(BOOKMARK_KEY);    // 'quiz_bookmarks_v1'
-  localStorage.removeItem(WRONG_KEY);       // 'quiz_wrongs_v1'
-  alert('保存データをすべて削除しました。ページを再読み込みします。');
-  location.reload();
-});
-
-
+// ===== 初期化 =====
 (async function init(){
   try {
-    questions = await loadJSON('./questions.json?v=1');
+    questions = await loadJSON('./questions.json?v=2'); // ★キャッシュ更新用にv=2
     populateFilters();
-        // 前回の続きから（進捗表示）
+
+    // トップに「前回の続き」と「最終回答日時」を表示
     const st0 = loadState();
     const canResume = st0 && Array.isArray(st0.order) && st0.order.length > 0;
     if (canResume && els.resumeBtn && els.resumeInfo) {
@@ -383,23 +354,7 @@ document.getElementById('hardResetBtn')?.addEventListener('click', () => {
         `前回の進捗：${Math.min((st0.index||0)+1, st0.order.length)}/${st0.order.length}　最終回答：${when}`;
     }
 
-        // トップページに最終回答日時を表示（あれば）
-    const last = localStorage.getItem('quiz_lastAnswered');
-    const laEl = document.getElementById('lastAnswered');
-    if (laEl) {
-      if (last) {
-        const d = new Date(last);
-        laEl.textContent = `最終回答日時：${d.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
-      } else {
-        laEl.textContent = '（まだ回答履歴はありません）';
-      }
-    }
-
-
     const st = loadState();
-    // …既存の初期化が終わった直後に
-scheduleCountdownRefresh();
-
     if (st) {
       stats = st.stats || stats;
       if (st.currentTag) els.tagFilter.value = st.currentTag;
@@ -415,6 +370,10 @@ scheduleCountdownRefresh();
     els.accuracy.textContent = stats.totalAnswered ? `${Math.round((stats.totalCorrect/stats.totalAnswered)*100)}%` : '0%';
     els.streak.textContent = stats.streak;
     els.progressBar.style.width = '0%';
+
+    // カウントダウン開始
+    scheduleCountdownRefresh();
+
   } catch (err) {
     console.error(err);
     alert('questions.json を読み込めませんでした。');
