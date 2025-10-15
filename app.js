@@ -345,6 +345,17 @@ document.getElementById('hardResetBtn')?.addEventListener('click', () => {
   try {
     questions = await loadJSON('./questions.json?v=1');
     populateFilters();
+        // 前回の続きから（進捗表示）
+    const st0 = loadState();
+    const canResume = st0 && Array.isArray(st0.order) && st0.order.length > 0;
+    if (canResume && els.resumeBtn && els.resumeInfo) {
+      els.resumeBtn.classList.remove('hidden');
+      const last = localStorage.getItem('quiz_lastAnswered');
+      const when = last ? new Date(last).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '—';
+      els.resumeInfo.textContent =
+        `前回の進捗：${Math.min((st0.index||0)+1, st0.order.length)}/${st0.order.length}　最終回答：${when}`;
+    }
+
         // トップページに最終回答日時を表示（あれば）
     const last = localStorage.getItem('quiz_lastAnswered');
     const laEl = document.getElementById('lastAnswered');
