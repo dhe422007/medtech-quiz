@@ -326,6 +326,33 @@ els.tagFilter.addEventListener('change', () => { if (els.viewQuiz.classList.cont
 els.yearFilter.addEventListener('change', () => { if (els.viewQuiz.classList.contains('active')) { applyFilter(); renderQuestion(); }});
 els.bookmarkBtn.addEventListener('click', () => { const q = questions[order[index]]; const b = getBookmarks(); if (b.has(q.id)) b.delete(q.id); else b.add(q.id); setBookmarks(b); renderQuestion(); });
 els.backHomeBtn.addEventListener('click', () => { showView('top'); });
+// ===== 前回の続きから再開ボタン =====
+els.resumeBtn?.addEventListener('click', () => {
+  const st = loadState();
+  if (!st) { alert('前回のデータが見つかりません。'); return; }
+
+  // UIの状態を復元
+  stats = st.stats || stats;
+  mode = st.mode || 'all';
+  els.modeSelect.value = mode;
+  if (st.currentTag) els.tagFilter.value = st.currentTag;
+  if (st.currentYear) els.yearFilter.value = st.currentYear;
+
+  // フィルタを適用しておく（データ整合性の確保）
+  applyFilter();
+
+  // 保存していた出題順をそのまま使う（存在すれば）
+  if (Array.isArray(st.order) && st.order.length > 0) {
+    order = st.order;
+  }
+
+  // 位置を復元
+  index = Math.min(st.index || 0, Math.max(order.length - 1, 0));
+
+  showView('quiz');
+  renderQuestion();
+});
+
 
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
 
