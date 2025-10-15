@@ -114,6 +114,11 @@ const setBookmarks = (set) => localStorage.setItem(BOOKMARK_KEY, JSON.stringify(
 const getWrongs = () => new Set(JSON.parse(localStorage.getItem(WRONG_KEY) || '[]'));
 const setWrongs = (set) => localStorage.setItem(WRONG_KEY, JSON.stringify([...set]));
 
+// 分野別累積データの保存・取得
+const getStatsByTag = () => JSON.parse(localStorage.getItem(STATS_BY_TAG_KEY) || '{}');
+const setStatsByTag = (obj) => localStorage.setItem(STATS_BY_TAG_KEY, JSON.stringify(obj));
+
+
 const updateStatsUI = () => {
   els.progressNum.textContent = `${Math.min(index+1, Math.max(order.length,1))}/${order.length}`;
   const acc = stats.totalAnswered ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100) : 0;
