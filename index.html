@@ -4,17 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="manifest" href="./manifest.webmanifest">
-<title>臨床検査技師 臨床生理　国試クイズ</title>
+<title>臨床検査技師 医用工学 国試クイズ</title>
 <style>
 :root{
-  --bg:#f8fafc;
-  --card:#ffffff;
-  --text:#0f172a;
-  --muted:#64748b;
-  --accent:#0ea5e9;
-  --ok:#22c55e;
-  --ng:#ef4444;
-  --ring:#e2e8f0;
+  --bg:#f8fafc; --card:#ffffff; --text:#0f172a; --muted:#64748b;
+  --accent:#0ea5e9; --ok:#22c55e; --ng:#ef4444; --ring:#e2e8f0;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","Hiragino Sans","Noto Sans JP","Yu Gothic","Meiryo",sans-serif}
@@ -40,30 +34,13 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:24px}
 .stats{display:flex;gap:12px;color:var(--muted);font-size:14px}
 .view{display:none}
 .view.active{display:block}
-  /* --- 共通お知らせ用: 中央寄せ・控えめカラー --- */
-.notice{
-  text-align:center;
-  font-size:13px;
-  color: var(--muted);
-  margin: 8px 0;
-}
-
+.notice{text-align:center;font-size:13px;color:var(--muted);margin:8px 0;}
 </style>
-<!-- Google Analytics 4 -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-1VQRG07NV5"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-1VQRG07NV5');
-</script>
-
-
 </head>
 <body>
 <header>
   <div class="container">
-    <h1>臨床検査技師 臨床生理　国試クイズ</h1>
+    <h1>臨床検査技師 医用工学 国試クイズ</h1>
     <div class="row">
       <select id="tagFilter" title="分野フィルタ"><option value="">全分野</option></select>
       <select id="yearFilter" title="年度フィルタ"><option value="">全年度</option></select>
@@ -81,33 +58,24 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:24px}
       </div>
     </div>
     <div class="row" id="examCountdownWrap" style="gap:12px; align-items:center;">
-  <span>次回試験日: <b>2026/02/18</b></span>
-  <span id="countdown" style="font-weight:bold;">残り -- 日</span>
-</div>
+      <span>次回試験日: <b>2026/02/18</b></span>
+      <span id="countdown" style="font-weight:bold;">残り -- 日</span>
+    </div>
     <div class="progress"><span id="progressBar"></span></div>
   </div>
- <div style="margin:8px 0; font-size:13px; color:#64748b;">
-  ※ 成績はこの端末の中だけに保存されます（サーバには送信されません）。
-</div>
-
-
-
+  <div class="notice">
+    ※ 成績はこの端末の中だけに保存されます（サーバには送信されません）。
+  </div>
 </header>
 
 <main class="container">
-
   <!-- Top View -->
   <section id="viewTop" class="view active">
     <div class="card">
-     <p>年度・分野で絞り込んで「この条件で開始」を押してください。画像付き・複数正解の問題にも対応しています。</p>
-
-<p id="lastAnswered" style="font-size:13px;color:#64748b;margin-top:8px;">
-  （まだ回答履歴はありません）
-</p>
-<p id="resumeInfo" class="muted" style="font-size:13px;color:#64748b;margin-top:8px;"></p>
-<button id="resumeBtn" class="primary hidden" style="margin-top:6px;">前回の続きから</button>
-
-
+      <p>年度・分野で絞り込んで「この条件で開始」を押してください。画像付き・複数正解の問題にも対応しています。</p>
+      <p id="lastAnswered" style="font-size:13px;color:#64748b;margin-top:8px;">（まだ回答履歴はありません）</p>
+      <p id="resumeInfo" class="muted" style="font-size:13px;color:#64748b;margin-top:8px;"></p>
+      <button id="resumeBtn" class="primary hidden" style="margin-top:6px;">前回の続きから</button>
     </div>
   </section>
 
@@ -135,19 +103,17 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:24px}
     <div class="card" style="text-align:center;">
       <h2>おつかれさまでした！</h2>
       <p>今回の正答率は <b id="finalAccuracy">0%</b> でした。</p>
-          <p id="finalDate" style="font-size:13px;color:#64748b;margin-top:8px;"></p>
-   
+      <p id="finalDate" style="font-size:13px;color:#64748b;margin-top:8px;"></p>
       <div class="row" style="justify-content:center;margin-top:8px;">
         <button id="backHomeBtn" class="primary">トップページに戻る</button>
       </div>
     </div>
   </section>
-
 </main>
 
-<footer>© 2025 H.U. All rights reserved.</footer>
+<footer>© 2025 H.U.</footer>
 
-<script src="./app.js?v=6"></script>
+<script src="./app.js?v=8"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
