@@ -1,8 +1,10 @@
-/* sw.js (clinical physiology) — network-first for HTML, cache-first for assets, and do NOT cache GA */
-const CACHE_NAME = 'clinical-physio-v15.2';
+/* sw.js (clinical physiology) — v15.2.2: bump cache name to force update */
+const CACHE_NAME = 'clinical-physio-v15.2.2';
 const ASSETS = ['./','./index.html','./app.js','./questions.json','./manifest.webmanifest'];
+
 self.addEventListener('install', (event) => { self.skipWaiting(); event.waitUntil(caches.open(CACHE_NAME).then((c)=>c.addAll(ASSETS).catch(()=>{}))); });
 self.addEventListener('activate', (event) => { event.waitUntil((async () => { const keys=await caches.keys(); await Promise.all(keys.map(k=>k!==CACHE_NAME?caches.delete(k):Promise.resolve())); await self.clients.claim(); })()); });
+
 const GA_HOSTS=['www.google-analytics.com','www.googletagmanager.com','analytics.google.com'];
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);

@@ -4,8 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>臨床検査技師 国家試験：臨床生理 問題アプリ</title>
-  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="manifest" href="manifest.webmanifest?v=cs15.2.2">
   <meta name="theme-color" content="#0f172a">
+  <!-- GA4 -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-1VQRG07NV5"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -194,10 +195,10 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=cs15.2"></script>
+  <script src="app.js?v=cs15.2.2"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(()=>{});
+      navigator.serviceWorker.register('./sw.js?v=cs15.2.2').catch(()=>{});
     }
   </script>
 </body>

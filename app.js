@@ -1,7 +1,7 @@
 /* ===============================
-   臨床検査技師 国家試験：臨床生理 問題アプリ (vCS-15.2)
+   臨床検査技師 国家試験：臨床生理 問題アプリ (vCS-15.2.2)
 ================================= */
-const BUILD = '2025-10-19-cs-01';
+const BUILD = '2025-10-19-cs-15.2.2';
 const STORE_KEY = 'clinicalPhysioQuiz:v1';
 const LOG_KEY = 'clinicalPhysioQuiz:log';
 const DATE_TARGET = '2026-02-18T00:00:00+09:00';
@@ -253,4 +253,4 @@ function isCorrectAnswer(userSelectedIndices, answerIndex){
 function intersectCount(a,b){ let i=0,j=0,c=0; while(i<a.length&&j<b.length){ if(a[i]===b[j]){c++;i++;j++;} else if(a[i]<b[j]) i++; else j++; } return c; }
 function toSet(ans){ return new Set(Array.isArray(ans) ? ans : [ans]); }
 
-if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(()=>{}); }
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js?v=cs15.2.2').catch(()=>{}); }
