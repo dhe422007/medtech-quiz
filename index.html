@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>臨床検査技師 国家試験：臨床生理 問題アプリ</title>
-  <link rel="manifest" href="manifest.webmanifest?v=cs15.2.3">
+  <link rel="manifest" href="manifest.webmanifest?v=cs15.2.4">
   <meta name="theme-color" content="#0f172a">
   <!-- GA4 -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-1VQRG07NV5"></script>
@@ -17,22 +17,6 @@
       const debug = params.get('ga_debug') === '1' || localStorage.getItem('ga_debug') === '1';
       gtag('config', 'G-1VQRG07NV5', { send_page_view: true, debug_mode: debug });
       if (debug) console.log('[GA] debug_mode enabled');
-    })();
-  </script>
-  <script>
-    (function(){
-      try {
-        const KEY = 'quiz_anonymous_uid';
-        let uid = localStorage.getItem(KEY);
-        if (!uid) {
-          uid = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, function(c){
-            return (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16);
-          });
-          localStorage.setItem(KEY, uid);
-        }
-        gtag('set', { 'user_id': uid });
-        gtag('event', 'app_loaded', { uid: uid, app: 'clinical-physiology' });
-      } catch(e) {}
     })();
   </script>
   <style>
@@ -195,10 +179,10 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=cs15.2.3"></script>
+  <script src="app.js?v=cs15.2.4"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js?v=cs15.2.3').catch(()=>{});
+      navigator.serviceWorker.register('./sw.js?v=cs15.2.4').catch(()=>{});
     }
   </script>
 </body>

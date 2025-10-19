@@ -1,7 +1,7 @@
 /* ===============================
-   臨床検査技師 国家試験：臨床生理 問題アプリ (vCS-15.2.3)
+   臨床検査技師 国家試験：臨床生理 問題アプリ (vCS-15.2.4)
 ================================= */
-const BUILD = '2025-10-19-cs-15.2.3';
+const BUILD = '2025-10-19-cs-15.2.4';
 const STORE_KEY = 'clinicalPhysioQuiz:v1';
 const LOG_KEY = 'clinicalPhysioQuiz:log';
 const DATE_TARGET = '2026-02-18T00:00:00+09:00';
@@ -43,18 +43,15 @@ function computeFacets(){
   for (const q of state.all){
     const tags = (q.tags || []).map(String);
     for (const t of tags){
-      if (/^\d{4}$/.test(t)) yearSet.add(t); else tagSet.add(t);
+      if (/^\d{4}$/.test(t) || t === 'original') yearSet.add(t); else tagSet.add(t);
     }
   }
   state.tags = Array.from(tagSet);
   state.years = Array.from(yearSet).sort();
 }
-      else tagSet.add(t);
-    }
-    yearSet.add('過去問');
   }
-  state.tags = Array.from(tagSet);
-  state.years = Array.from(yearSet).sort();
+  state.tags = Array.from(tagSet); // includes 超音波/筋電図/脳波/過去問 等
+  state.years = Array.from(yearSet).sort((a,b)=>String(a).localeCompare(String(b), 'ja'));
 }
 
 function setFooterVisibility(){ const isHome = state.screen==='home'; $('#prevBtn').classList.toggle('hidden', isHome); $('#nextBtn').classList.toggle('hidden', isHome); $('#progress').classList.toggle('hidden', isHome); }
@@ -78,13 +75,18 @@ function initHome(){
 function estimateCount({year='', tag=''}){
   return state.all.filter(q => {
     const tags=(q.tags||[]).map(String);
-    const matchYear = matchYearTag(tags, year);
+    const matchYear = !year || tags.includes(String(year));
     const matchTag = !tag || tags.includes(String(tag));
     return matchYear && matchTag;
   }).length;
 }
 
 function startFromHome({year='', tag=''}={}){
+  const count = estimateCount({year, tag});
+  if (count === 0){
+    alert('該当する問題がありません。年度や分野を変更してください。');
+    return;
+  }
   try { if (typeof gtag==='function'){ gtag('event','quiz_start',{year:year||'', tag:tag||'', app:'clinical-physiology'}); } } catch(e){}
   $('#yearFilter').value = year; $('#tagFilter').value = tag;
   state.yearFilter = year; state.tagFilter = tag;
@@ -102,22 +104,11 @@ function applyFilters(){
   const year = ($('#yearFilter')?.value ?? state.yearFilter) || '';
   state.filtered = state.all.filter(q => {
     const tags=(q.tags||[]).map(String);
-    const matchYear = matchYearTag(tags, year);
+    const matchYear = !year || tags.includes(String(year));
     const matchTag = !tag || tags.includes(String(tag));
     return matchYear && matchTag;
   });
   state.idx=0; state.tagFilter=tag; state.yearFilter=year;
-}
-function matchYearTag(tagsArr, year){
-  if (!year) return true;
-  const y=String(year);
-  return tagsArr.some(s0 => {
-    const s=String(s0);
-    if (y==='original' || y==='過去問') return s===y;
-    if (s==='original' || s==='過去問') return false;
-    if (/^\d{4}$/.test(y)){ return s===y || s.includes(y) || s.replace(/年$/,'')===y; }
-    return s===y;
-  });
 }
 
 function showHome(){ $('#homeScreen').classList.remove('hidden'); $('#quizScreen').classList.add('hidden'); $('#resultScreen').classList.add('hidden'); state.screen='home'; setFooterVisibility(); }
@@ -257,4 +248,4 @@ function isCorrectAnswer(userSelectedIndices, answerIndex){
 function intersectCount(a,b){ let i=0,j=0,c=0; while(i<a.length&&j<b.length){ if(a[i]===b[j]){c++;i++;j++;} else if(a[i]<b[j]) i++; else j++; } return c; }
 function toSet(ans){ return new Set(Array.isArray(ans) ? ans : [ans]); }
 
-if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js?v=cs15.2.2').catch(()=>{}); }
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js?v=cs15.2.4').catch(()=>{}); }

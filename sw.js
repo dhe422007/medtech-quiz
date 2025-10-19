@@ -1,5 +1,5 @@
-/* sw.js (clinical physiology) — v15.2.2: bump cache name to force update */
-const CACHE_NAME = 'clinical-physio-v15.2.3';
+/* sw.js (clinical physiology) — v15.2.4 */
+const CACHE_NAME = 'clinical-physio-v15.2.4';
 const ASSETS = ['./','./index.html','./app.js','./questions.json','./manifest.webmanifest'];
 
 self.addEventListener('install', (event) => { self.skipWaiting(); event.waitUntil(caches.open(CACHE_NAME).then((c)=>c.addAll(ASSETS).catch(()=>{}))); });
