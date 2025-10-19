@@ -15,7 +15,6 @@
       const params = new URLSearchParams(location.search);
       const debug = params.get('ga_debug') === '1' || params.get('dbg') === '1' || localStorage.getItem('ga_debug') === '1';
       gtag('config', 'G-1VQRG07NV5', { send_page_view: true, debug_mode: debug });
-      if (debug) console.log('[GA] debug_mode enabled');
     })();
   </script>
   <style>
