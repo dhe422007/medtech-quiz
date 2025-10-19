@@ -4,9 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>臨床検査技師 国家試験：臨床生理 問題アプリ</title>
-  <link rel="manifest" href="manifest.webmanifest?v=cs15.2.4">
+  <link rel="manifest" href="manifest.webmanifest?v=cs15.2.5">
   <meta name="theme-color" content="#0f172a">
-  <!-- GA4 -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-1VQRG07NV5"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -14,13 +13,13 @@
     gtag('js', new Date());
     (function(){
       const params = new URLSearchParams(location.search);
-      const debug = params.get('ga_debug') === '1' || localStorage.getItem('ga_debug') === '1';
+      const debug = params.get('ga_debug') === '1' || params.get('dbg') === '1' || localStorage.getItem('ga_debug') === '1';
       gtag('config', 'G-1VQRG07NV5', { send_page_view: true, debug_mode: debug });
       if (debug) console.log('[GA] debug_mode enabled');
     })();
   </script>
   <style>
-    :root { --fg:#0f172a; --muted:#475569; --bg:#f8fafc; --accent:#2563eb; --ok:#16a34a; --ng:#ef4444; }
+    :root { --fg:#0f172a; --muted:#475569; --accent:#2563eb; --ok:#16a34a; --ng:#ef4444; }
     * { box-sizing: border-box; }
     body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Kaku Gothic ProN",Meiryo,"Noto Sans JP","Helvetica Neue",Arial; color:var(--fg); background:#fff; }
     header { position:sticky; top:0; z-index:10; background:rgba(255,255,255,.92); backdrop-filter: blur(6px); border-bottom:1px solid rgba(15,23,42,.08); }
@@ -30,37 +29,33 @@
     .pill { padding:6px 10px; border:1px solid rgba(15,23,42,.12); border-radius:999px; font-size:12px; color:var(--muted); }
     main { max-width:980px; margin:20px auto; padding:0 16px 100px; }
     .card { border:1px solid rgba(15,23,42,.10); border-radius:16px; padding:20px; box-shadow:0 2px 16px rgba(15,23,42,.04); }
-    .qtext { font-size:18px; line-height:1.6; margin:8px 0 12px; white-space: pre-wrap; }
-    .choices { display:grid; gap:10px; }
-    .choice { text-align:left; border:1px solid rgba(15,23,42,.15); border-radius:12px; padding:12px 14px; background:#fff; cursor:pointer; transition:.15s; }
-    .choice:hover { border-color: var(--accent); box-shadow: 0 2px 14px rgba(37, 99, 235, .08); transform: translateY(-1px); }
-    .choice.selected { border-color: var(--accent); outline: 2px solid rgba(37,99,235,.15); background:#2563eb; color:#fff; }
-    .choice.correct { border-color: var(--ok); background: rgba(22,163,74,.12); color:#083311; }
-    .choice.incorrect { border-color: var(--ng); background: rgba(239,68,68,.12); color:#5f1111; }
     .muted { color:var(--muted); font-size:13px; }
     .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     select, button, input { font-size:14px; }
     select, input { padding:8px 10px; border-radius:10px; border:1px solid rgba(15,23,42,.15); background:#fff; }
     .btn { border:none; background: var(--accent); color:#fff; padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600; }
     .btn.ghost { background:#fff; color:var(--fg); border:1px solid rgba(15,23,42,.15); }
-    .btn.flat { background:transparent; color:var(--muted); }
     .btn:disabled { opacity:.5; cursor:not-allowed; }
     .spacer { flex:1; }
+    .choices { display:grid; gap:10px; }
+    .choice { text-align:left; border:1px solid rgba(15,23,42,.15); border-radius:12px; padding:12px 14px; background:#fff; cursor:pointer; transition:.15s; }
+    .choice:hover { border-color: var(--accent); box-shadow: 0 2px 14px rgba(37, 99, 235, .08); transform: translateY(-1px); }
+    .choice.selected { border-color: var(--accent); outline: 2px solid rgba(37,99,235,.15); background:#2563eb; color:#fff; }
+    .choice.correct { border-color: var(--ok); background: rgba(22,163,74,.12); color:#083311; }
+    .choice.incorrect { border-color: var(--ng); background: rgba(239,68,68,.12); color:#5f1111; }
     .explain { margin-top:12px; padding:12px; border-radius:12px; background:#f8fafc; border:1px solid rgba(15,23,42,.10); }
     .hidden { display:none; }
     .footer-bar { position:fixed; bottom:0; left:0; right:0; background:rgba(255,255,255,.95); border-top:1px solid rgba(15,23,42,.08); }
     .foot { max-width:980px; margin:0 auto; padding:10px 16px; display:flex; gap:10px; align-items:center; }
-    table { width:100%; border-collapse: collapse; }
-    th, td { padding:8px 6px; border-bottom:1px solid rgba(15,23,42,.08); text-align:left; }
-    th { background:#f8fafc; }
     .grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
     .tile { border:1px solid rgba(15,23,42,.12); border-radius:14px; padding:14px; background:#fff; cursor:pointer; transition:.15s; }
     .tile:hover { border-color: var(--accent); box-shadow: 0 2px 14px rgba(37, 99, 235, .08); transform: translateY(-1px); }
     .tile h3 { margin:0 0 6px; font-size:16px; }
     .tile .muted { font-size:12px; }
     .section-title { font-weight:700; margin: 6px 0 10px; }
-    .hint { font-size:12px; color:var(--muted); }
     .selbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; background:#f8fafc; border:1px solid rgba(15,23,42,.1); padding:12px; border-radius:12px; }
+    .error { border:1px solid rgba(239,68,68,.35); background:#fff5f5; color:#991b1b; padding:10px 12px; border-radius:12px; margin-bottom:12px; }
+    .count-warn { color:#ef4444; font-weight:600; }
   </style>
 </head>
 <body>
@@ -75,6 +70,8 @@
   </header>
 
   <main>
+    <div id="alert" class="error hidden"></div>
+
     <section id="homeScreen" class="card">
       <div class="section-title">出題範囲を選択して「解答スタート」を押してください</div>
       <div class="selbar" style="margin-bottom:14px;">
@@ -91,7 +88,8 @@
           </select>
         </div>
         <button id="homeStartBtn" class="btn">解答スタート</button>
-        <span id="homeCount" class="muted hint"></span>
+        <button id="homeStartAllBtn" class="btn ghost" title="読み込み不調時の応急ボタン">全問題から開始</button>
+        <span id="homeCount" class="muted"></span>
       </div>
 
       <div class="row" style="gap:20px; align-items:flex-start;">
@@ -104,22 +102,17 @@
           <div id="homeTags" class="grid"></div>
         </div>
       </div>
-      <div class="muted" style="margin-top:12px;">※ 成績は端末ローカルにのみ保存されます。</div>
+      <div class="muted" style="margin-top:12px;">※ 成績は端末ローカルにのみ保存されます。　<span class="muted">© H.U.</span></div>
     </section>
 
     <section id="quizScreen" class="card hidden">
       <div class="row" style="gap:8px; margin-bottom:10px;">
         <label class="muted">分野</label>
-        <select id="tagFilter">
-          <option value="">すべて</option>
-        </select>
+        <select id="tagFilter"><option value="">すべて</option></select>
         <label class="muted">年度</label>
-        <select id="yearFilter">
-          <option value="">すべて</option>
-        </select>
+        <select id="yearFilter"><option value="">すべて</option></select>
         <div class="spacer"></div>
       </div>
-
       <div id="qmeta" class="muted"></div>
       <div id="qtext" class="qtext"></div>
       <div id="qimage" class="hidden"></div>
@@ -130,12 +123,11 @@
     <section id="resultScreen" class="card hidden">
       <div class="section-title">結果</div>
       <div id="resultSummary" class="qtext"></div>
-      <div id="resultAdvice" class="qtext" style="margin-top:8px;"></div>
+      <div class="muted" style="margin-top:10px;">※ 成績は端末ローカルにのみ保存されます。　<span class="muted">© H.U.</span></div>
       <div style="margin-top:12px;">
         <button id="resultToHome" class="btn ghost">トップページへ戻る</button>
         <button id="resultRestart" class="btn">同じ条件でもう一度</button>
       </div>
-      <div class="muted" style="margin-top:10px;">※ 成績は端末ローカルにのみ保存されます。</div>
     </section>
   </main>
 
@@ -149,40 +141,10 @@
     </div>
   </div>
 
-  <dialog id="statsDlg">
-    <header class="bar">
-      <strong style="padding-left:6px;">成績・弱点レポート</strong>
-      <div class="spacer"></div>
-      <button id="resetStats" class="btn ghost">ログをリセット</button>
-      <button id="closeStats" class="btn flat">閉じる</button>
-    </header>
-    <div class="content">
-      <div class="muted" style="margin-bottom:10px;">※ 成績・ログは端末ローカル（この端末のみ）に保存されます。</div>
-      <section>
-        <h3>分野別 正答率</h3>
-        <table id="tagTable">
-          <thead><tr><th>分野タグ</th><th>正解</th><th>試行</th><th>正答率</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </section>
-      <section style="margin-top:16px;">
-        <h3>弱点（試行5回以上で正答率が低い順）</h3>
-        <table id="weakTable">
-          <thead><tr><th>対象</th><th>正解</th><th>試行</th><th>正答率</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </section>
-      <section style="margin-top:16px;">
-        <h3>最近の学習ログ（新しい順 最大50件）</h3>
-        <div id="logList"></div>
-      </section>
-    </div>
-  </dialog>
-
-  <script src="app.js?v=cs15.2.4"></script>
+  <script src="app.js?v=cs15.2.5"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js?v=cs15.2.4').catch(()=>{});
+      navigator.serviceWorker.register('./sw.js?v=cs15.2.5').catch(()=>{});
     }
   </script>
 </body>
