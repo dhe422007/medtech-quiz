@@ -1,5 +1,5 @@
-/* sw.js v15.2.6 — cache-bust + GA除外 */
-const CACHE_NAME = 'clinical-physio-v15.2.6';
+/* sw.js v15.2.7 — cache-bust + GA除外 */
+const CACHE_NAME = 'clinical-physio-v15.2.7';
 const ASSETS = ['./','./index.html','./app.js','./questions.json','./manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
@@ -47,4 +47,3 @@ self.addEventListener('fetch', (event) => {
     }
   })());
 });
-
