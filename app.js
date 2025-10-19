@@ -1,7 +1,7 @@
 /* ===============================
-   臨床検査技師 国家試験：臨床生理 問題アプリ (vCS-15.2.2)
+   臨床検査技師 国家試験：臨床生理 問題アプリ (vCS-15.2.3)
 ================================= */
-const BUILD = '2025-10-19-cs-15.2.2';
+const BUILD = '2025-10-19-cs-15.2.3';
 const STORE_KEY = 'clinicalPhysioQuiz:v1';
 const LOG_KEY = 'clinicalPhysioQuiz:log';
 const DATE_TARGET = '2026-02-18T00:00:00+09:00';
@@ -43,8 +43,12 @@ function computeFacets(){
   for (const q of state.all){
     const tags = (q.tags || []).map(String);
     for (const t of tags){
-      if (/^\d{4}$/.test(t)) yearSet.add(t);
-      else if (t === 'original' || t === '過去問') { /* ignore for tag cloud */ }
+      if (/^\d{4}$/.test(t)) yearSet.add(t); else tagSet.add(t);
+    }
+  }
+  state.tags = Array.from(tagSet);
+  state.years = Array.from(yearSet).sort();
+}
       else tagSet.add(t);
     }
     yearSet.add('過去問');
