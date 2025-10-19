@@ -1,66 +1,14 @@
-// sw.js optimized (Network-First for questions.json, Stale-While-Revalidate for others)
-const CACHE_VERSION = 'v6';
-const STATIC_CACHE = `quiz-static-${CACHE_VERSION}`;
-const RUNTIME_CACHE = `quiz-runtime-${CACHE_VERSION}`;
-
-const ASSETS = [
-  './',
-  './index.html',
-  './app.js?v=1',
-  './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-];
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => cache.addAll(ASSETS))
-      .then(() => self.skipWaiting())
-  );
-});
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter(k => k!==STATIC_CACHE && k!==RUNTIME_CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  );
-});
-
+/* sw.js (clinical physiology) — network-first for HTML, cache-first for assets, and do NOT cache GA */
+const CACHE_NAME = 'clinical-physio-v15.2';
+const ASSETS = ['./','./index.html','./app.js','./questions.json','./manifest.webmanifest'];
+self.addEventListener('install', (event) => { self.skipWaiting(); event.waitUntil(caches.open(CACHE_NAME).then((c)=>c.addAll(ASSETS).catch(()=>{}))); });
+self.addEventListener('activate', (event) => { event.waitUntil((async () => { const keys=await caches.keys(); await Promise.all(keys.map(k=>k!==CACHE_NAME?caches.delete(k):Promise.resolve())); await self.clients.claim(); })()); });
+const GA_HOSTS=['www.google-analytics.com','www.googletagmanager.com','analytics.google.com'];
 self.addEventListener('fetch', (event) => {
-  const req = event.request;
-  const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return;
-
-  const isQuestions = url.pathname.endsWith('/questions.json') || url.pathname.endsWith('/questions.json/');
-  if (isQuestions) {
-    event.respondWith(networkFirst(req));
-    return;
+  const url = new URL(event.request.url);
+  if (GA_HOSTS.includes(url.hostname)) return;
+  if (event.request.mode === 'navigate' || (event.request.destination === 'document')){
+    event.respondWith((async () => { try { const fresh=await fetch(event.request); const cache=await caches.open(CACHE_NAME); cache.put(event.request, fresh.clone()); return fresh; } catch(e){ const cache=await caches.open(CACHE_NAME); const cached=await cache.match(event.request) || await cache.match('./index.html'); return cached || Response.error(); } })()); return;
   }
-  if (req.method === 'GET') {
-    event.respondWith(staleWhileRevalidate(req));
-  }
+  event.respondWith((async () => { const cache=await caches.open(CACHE_NAME); const cached=await cache.match(event.request); if (cached) return cached; try{ const fresh=await fetch(event.request); cache.put(event.request, fresh.clone()); return fresh; } catch(e){ return Response.error(); } })());
 });
-
-async function networkFirst(request) {
-  try {
-    const fresh = await fetch(request, { cache: 'no-store' });
-    const cache = await caches.open(RUNTIME_CACHE);
-    cache.put(request, fresh.clone());
-    return fresh;
-  } catch (e) {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    return new Response('Offline', { status: 503 });
-  }
-}
-
-async function staleWhileRevalidate(request) {
-  const cache = await caches.open(STATIC_CACHE);
-  const cached = await cache.match(request);
-  const fetchPromise = fetch(request).then((res) => {
-    if (res && res.status === 200) cache.put(request, res.clone());
-    return res;
-  }).catch(() => null);
-  return cached || fetchPromise || new Response('Offline', { status: 503 });
-}
