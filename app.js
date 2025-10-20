@@ -1,4 +1,4 @@
-// app.js (結果ページ強化 + 成績・弱点ページ実装)
+// app.js (top UI reverted + robust image resolver)
 const STATE_KEY = 'quiz_state_v4';
 const BOOKMARK_KEY = 'quiz_bookmarks_v1';
 const WRONG_KEY = 'quiz_wrongs_v1';
@@ -46,9 +46,7 @@ const els = {
   finalDuration: document.getElementById('finalDuration'),
   weaknessList: document.getElementById('weaknessList'),
   backHomeBtn: document.getElementById('backHomeBtn'),
-  toStatsBtn: document.getElementById('toStatsBtn'),
   toStatsBtn2: document.getElementById('toStatsBtn2'),
-  topSummary: document.getElementById('topSummary'),
   resumeBtn: document.getElementById('resumeBtn'),
   resumeInfo: document.getElementById('resumeInfo'),
   statsOverview: document.getElementById('statsOverview'),
@@ -76,14 +74,19 @@ function scheduleCountdownRefresh(){
   setTimeout(()=>{ updateCountdown(); setInterval(updateCountdown, 24*60*60*1000); }, next-now);
 }
 
-// 画像ヘルパー
+// 画像ヘルパー（“？”防止＋自動パス補完）
 const isNoImage = (s)=>{ if(!s) return true; const t=String(s).trim(); if(!t) return true; return /^(-|なし|null|na)$/i.test(t); };
-const normalizeImagePath = (s)=>{
-  if (!s) return null; const t=String(s).trim(); if(!t) return null;
-  if (/^(-|なし|null|na)$/i.test(t)) return null;
-  if (/^\.[a-zA-Z0-9]+$/.test(t)) return null;
-  if (!/\.(jpg|jpeg|png|webp|gif)$/i.test(t)) return null;
-  return t;
+const hasExt = (t)=>/\.(jpg|jpeg|png|webp|gif)$/i.test(t);
+const resolveImageSrc = (raw)=>{
+  if (!raw) return null;
+  const t = String(raw).trim();
+  if (!t || /^(-|なし|null|na)$/i.test(t)) return null;
+  // フル/相対パス・URLはそのまま
+  if (/^https?:\/\//i.test(t) || t.includes('/')) {
+    return hasExt(t) ? t : null;
+  }
+  // ファイル名のみ → assets/images に補完
+  return hasExt(t) ? `./assets/images/${t}` : null;
 };
 
 // 汎用
@@ -183,7 +186,6 @@ const gradeCurrent = ()=>{
     session.perTag[t].ans += 1;
     if (isAllMatch) session.perTag[t].cor += 1;
   });
-  // 年度集計
   (q.tags||[]).forEach(t=>{
     if (isYearTag(t)) {
       if (!session.perYear[t]) session.perYear[t]={ans:0, cor:0};
@@ -192,7 +194,7 @@ const gradeCurrent = ()=>{
     }
   });
 
-  // 累積（端末保存）
+  // 端末累積
   const sbt=getStatsByTag();
   (q.tags||[]).forEach(t=>{
     if (!sbt[t]) sbt[t]={answered:0, correct:0};
@@ -220,8 +222,8 @@ const renderQuestion = ()=>{
   els.qid.textContent = q.id || `Q${order[index]+1}`;
   els.questionText.textContent = q.question;
 
-  // 画像
-  const imgSrc = normalizeImagePath(q.image);
+  // 本文画像（自動パス補完 + 壊れたら非表示）
+  const imgSrc = resolveImageSrc(q.image);
   if (imgSrc) {
     els.qImage.classList.remove('hidden');
     els.qImage.alt = q.imageAlt || '';
@@ -245,7 +247,12 @@ const renderQuestion = ()=>{
   shuffled.forEach(i=>{
     const btn=document.createElement('button'); btn.className='choice';
     const val=q.choices[i];
-    const choiceImg = (typeof val==='string') ? normalizeImagePath(val) : null;
+
+    // 画像選択肢にも対応（ファイル名だけなら自動で assets/images/ を補完）
+    let choiceImg = null;
+    if (typeof val === 'string' && /\.(jpg|jpeg|png|webp|gif)$/i.test(val)) {
+      choiceImg = resolveImageSrc(val);
+    }
     if (choiceImg) {
       btn.textContent=''; const img=document.createElement('img');
       img.alt=`choice${i+1}`; img.style.maxWidth='100%'; img.style.height='auto';
@@ -254,6 +261,7 @@ const renderQuestion = ()=>{
     } else {
       btn.textContent = val;
     }
+
     btn.dataset.index=i;
     btn.addEventListener('click',()=>{
       if (answered) return;
@@ -378,8 +386,7 @@ const next = ()=>{
 const prev = ()=>{ if (index>0){ index-=1; renderQuestion(); } };
 
 // イベント
-document.getElementById('toStatsBtn').addEventListener('click', ()=> showView('stats'));
-document.getElementById('toStatsBtn2').addEventListener('click', ()=> showView('stats'));
+els.toStatsBtn2.addEventListener('click', ()=> showView('stats'));
 els.backHomeBtn.addEventListener('click', ()=> showView('top'));
 els.backTopBtn.addEventListener('click', ()=> showView('top'));
 
@@ -403,12 +410,12 @@ els.bookmarkBtn.addEventListener('click', ()=>{
   const q=questions[order[index]]; const b=getBookmarks();
   if (b.has(q.id)) b.delete(q.id); else b.add(q.id); setBookmarks(b); renderQuestion();
 });
-els.reviewWrongsBtn.addEventListener('click', ()=>{
+els.reviewWrongsBtn && els.reviewWrongsBtn.addEventListener('click', ()=>{
   mode='wrong'; els.modeSelect.value='wrong'; applyFilter();
   if (order.length===0){ alert('間違えた問題がありません。'); return; }
   order=shuffle(order); index=0; showView('quiz'); renderQuestion();
 });
-els.reviewBookmarksBtn.addEventListener('click', ()=>{
+els.reviewBookmarksBtn && els.reviewBookmarksBtn.addEventListener('click', ()=>{
   mode='bookmarked'; els.modeSelect.value='bookmarked'; applyFilter();
   if (order.length===0){ alert('ブックマークがありません。'); return; }
   order=shuffle(order); index=0; showView('quiz'); renderQuestion();
@@ -429,7 +436,7 @@ els.resetStatsBtn && els.resetStatsBtn.addEventListener('click', ()=>{
 // 初期化
 (async function init(){
   try {
-    questions = await loadJSON('./questions.json?v=10');
+    questions = await loadJSON('./questions.json?v=11');
     populateFilters();
 
     const st0 = loadState();
@@ -463,10 +470,6 @@ els.resetStatsBtn && els.resetStatsBtn.addEventListener('click', ()=>{
     } else {
       applyFilter();
     }
-
-    // トップ要約
-    const acc = stats.totalAnswered? Math.round((stats.totalCorrect/stats.totalAnswered)*100):0;
-    els.topSummary.textContent = `累計 正答率 ${acc}%（正解 ${stats.totalCorrect} / 全 ${stats.totalAnswered}）`;
 
     updateStatsUI();
     scheduleCountdownRefresh();
