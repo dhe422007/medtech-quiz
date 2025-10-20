@@ -1,10 +1,41 @@
-/* sw.js v15.2.8 */
-const CACHE_NAME='clinical-physio-v15.2.8';
-const ASSETS=['./','./index.html','./app.js','./questions.json','./manifest.webmanifest'];
-self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(ASSETS).catch(()=>{})))});
-self.addEventListener('activate',e=>{e.waitUntil((async()=>{const ks=await caches.keys();await Promise.all(ks.map(k=>k!==CACHE_NAME?caches.delete(k):Promise.resolve()));await self.clients.claim();})())});
-const GA=['www.google-analytics.com','www.googletagmanager.com','analytics.google.com'];
-self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(GA.includes(u.hostname))return;
-  if(e.request.mode==='navigate'||e.request.destination==='document'){e.respondWith((async()=>{try{const f=await fetch(e.request);const c=await caches.open(CACHE_NAME);c.put(e.request,f.clone());return f;}catch(err){const c=await caches.open(CACHE_NAME);const m=await c.match(e.request)||await c.match('./index.html');return m||Response.error();}})());return;}
-  e.respondWith((async()=>{const c=await caches.open(CACHE_NAME);const m=await c.match(e.request);if(m)return m;try{const f=await fetch(e.request);c.put(e.request,f.clone());return f;}catch(err){return Response.error();}})());
+// sw.js (cache bump for new pages)
+const CACHE_VERSION = 'v10';
+const CACHE_NAME = `quiz-cache-${CACHE_VERSION}`;
+const URLS_TO_CACHE = [
+  './',
+  './index.html',
+  './app.js?v=10',
+  './questions.json',
+  './manifest.webmanifest',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(URLS_TO_CACHE))
+  );
+  self.skipWaiting();
+});
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k.startsWith('quiz-cache-') && k !== CACHE_NAME).map(k => caches.delete(k)));
+    await self.clients.claim();
+  })());
+});
+self.addEventListener('fetch', (event) => {
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(event.request);
+    if (cached) return cached;
+    try {
+      const res = await fetch(event.request);
+      // HTML以外をキャッシュ（雑に）
+      if (!event.request.url.endsWith('.html')) cache.put(event.request, res.clone());
+      return res;
+    } catch (e) {
+      return cached || Response.error();
+    }
+  })());
 });
