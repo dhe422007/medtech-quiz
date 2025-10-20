@@ -1,4 +1,4 @@
-// app.js — Clinical Physiology quiz (card home, robust images)
+// app.js — 0-based grading fixed & blue header buttons
 const STATE_KEY = 'quiz_state_v5';
 const BOOKMARK_KEY = 'quiz_bookmarks_v1';
 const WRONG_KEY = 'quiz_wrongs_v1';
@@ -126,66 +126,38 @@ function buildCounts(){
   const yearCounts = new Map(); const tagCounts = new Map();
   questions.forEach(q=>{
     const tags = q.tags || [];
-    // 年度
-    tags.filter(isYearTag).forEach(y=>{
-      yearCounts.set(y, (yearCounts.get(y)||0)+1);
-    });
-    // 分野
-    tags.filter(t=>!isYearTag(t)).forEach(t=>{
-      tagCounts.set(t, (tagCounts.get(t)||0)+1);
-    });
+    tags.filter(isYearTag).forEach(y=> yearCounts.set(y,(yearCounts.get(y)||0)+1));
+    tags.filter(t=>!isYearTag(t)).forEach(t=> tagCounts.set(t,(tagCounts.get(t)||0)+1));
   });
   return { yearCounts, tagCounts };
 }
-
 function renderCardGrid(){
   const { yearCounts, tagCounts } = buildCounts();
-
-  // 年度
   const years = [...yearCounts.entries()].sort((a,b)=>{
-    const [ya,c1]=a, [yb,c2]=b;
+    const [ya]=a, [yb]=b;
     const na = /^\d{4}$/.test(ya)?parseInt(ya,10):-Infinity;
     const nb = /^\d{4}$/.test(yb)?parseInt(yb,10):-Infinity;
-    // 表示は昇順、"original/過去問"などは最後
     if (na!==-Infinity || nb!==-Infinity) return na-nb;
     return String(ya).localeCompare(String(yb));
   });
   els.yearGrid.innerHTML = years.map(([y,c])=>(
-    `<div class="tile" data-year="${y}">
-       <strong>${y}</strong>
-       <small>${c}問</small>
-     </div>`
+    `<div class="tile" data-year="${y}"><strong>${y}</strong><small>${c}問</small></div>`
   )).join('');
 
-  // 分野
   const tags = [...tagCounts.entries()].sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
   els.tagGrid.innerHTML = [
     `<div class="tile" data-tag=""><strong>全ての分野</strong><small>${questions.length}問</small></div>`,
-    ...tags.map(([t,c])=>(
-      `<div class="tile" data-tag="${t}">
-         <strong>${t}</strong>
-         <small>${c}問</small>
-       </div>`
-    ))
+    ...tags.map(([t,c])=>`<div class="tile" data-tag="${t}"><strong>${t}</strong><small>${c}問</small></div>`)
   ].join('');
 
-  // クリックでフィルタ反映
   [...els.yearGrid.querySelectorAll('.tile')].forEach(tile=>{
-    tile.addEventListener('click', ()=>{
-      els.yearFilter.value = tile.dataset.year;
-      updateMatchCount();
-    });
+    tile.addEventListener('click', ()=>{ els.yearFilter.value = tile.dataset.year; updateMatchCount(); });
   });
   [...els.tagGrid.querySelectorAll('.tile')].forEach(tile=>{
-    tile.addEventListener('click', ()=>{
-      els.tagFilter.value = tile.dataset.tag || '';
-      updateMatchCount();
-    });
+    tile.addEventListener('click', ()=>{ els.tagFilter.value = tile.dataset.tag || ''; updateMatchCount(); });
   });
 }
-
 function updateMatchCount(){
-  // いまのフィルタで何問あるか
   const tagSel = els.tagFilter.value;
   const yearSel = els.yearFilter.value;
   const wr = getWrongs();
@@ -210,19 +182,16 @@ function renderTags(q){
     els.tagsWrap.appendChild(s);
   });
 }
-
 function renderQuestion(){
   const q = questions[order[index]];
   els.qid.textContent = q.id || `Q${order[index]+1}`;
   els.questionText.textContent = q.question || '';
 
-  // 本文画像
   const src = resolveImageSrc(q.image);
   if (src){
     els.qImage.classList.remove('hidden');
     els.qImage.alt = q.imageAlt || '';
     els.qImage.onerror = ()=>{ els.qImage.classList.add('hidden'); els.qImage.removeAttribute('src'); els.qImage.removeAttribute('alt'); };
-    els.qImage.onload = ()=>{};
     els.qImage.src = src;
   }else{
     els.qImage.classList.add('hidden'); els.qImage.removeAttribute('src'); els.qImage.removeAttribute('alt');
@@ -243,7 +212,6 @@ function renderQuestion(){
   shuffled.forEach(i=>{
     const btn=document.createElement('button'); btn.className='choice';
     const val=q.choices[i];
-    // 画像選択肢対応
     let choiceImg=null;
     if (typeof val==='string' && hasExt(val)) choiceImg = resolveImageSrc(val);
     if (choiceImg){
@@ -264,25 +232,18 @@ function renderQuestion(){
     els.choices.appendChild(btn);
   });
 
-  // bookmark
   const bms = getBookmarks();
   els.bookmarkBtn.textContent = bms.has(q.id) ? '★ ブックマーク中' : '☆ ブックマーク';
 
   updateStatsUI();
 }
-
 function gradeCurrent(){
   const q = questions[order[index]];
-  let correct = asCorrectArray(q.answerIndex).map(Number);
-  // 1始まりに見える場合は補正
-  const maxChoice = q.choices.length;
-  const isOneBased = correct.length>0 && correct.every(n=>n>=1 && n<=maxChoice) && !correct.includes(0);
-  if (isOneBased) correct = correct.map(n=>n-1);
+  // —— 0始まり固定。questions.jsonの値をそのまま使用 ——
+  const correct = asCorrectArray(q.answerIndex).map(Number).sort((a,b)=>a-b);
+  const picked  = [...selectedSet].sort((a,b)=>a-b);
+  const ok = (picked.length===correct.length) && picked.every((v,i)=>v===correct[i]);
 
-  const picked = [...selectedSet].sort((a,b)=>a-b);
-  const ok = (picked.length===correct.length) && picked.every((v,i)=>v===correct.sort((a,b)=>a-b)[i]);
-
-  // ボタン着色
   [...document.querySelectorAll('.choice')].forEach(b=>{
     const bi = Number(b.dataset.index);
     if (correct.includes(bi)) b.classList.add('correct');
@@ -297,7 +258,6 @@ function gradeCurrent(){
   els.explain.classList.remove('hidden');
   updateStatsUI(); persistStats();
 
-  // セッション集計
   (q.tags||[]).forEach(t=>{
     if (!session.perTag[t]) session.perTag[t]={ans:0, cor:0};
     session.perTag[t].ans += 1;
@@ -315,6 +275,7 @@ function gradeCurrent(){
   els.nextBtn.textContent = (index < order.length-1) ? '次へ ▶' : '結果を見る';
 }
 
+// ===== Filter / End / Stats =====
 function applyFilter(){
   const tagSel = els.tagFilter.value;
   const yearSel = els.yearFilter.value;
@@ -333,7 +294,6 @@ function applyFilter(){
   order = base; index = 0;
   els.matchCount.textContent = String(order.length);
 }
-
 function renderEndPage(){
   const acc = stats.totalAnswered ? Math.round((stats.totalCorrect / stats.totalAnswered)*100) : 0;
   els.finalAccuracy.textContent = `${acc}%`;
@@ -347,13 +307,12 @@ function renderEndPage(){
     els.finalDuration.textContent = `所要時間：${m}分${s}秒`;
   } else { els.finalDuration.textContent = ''; }
 
-  // 弱点（回答≥3の項目を正答率昇順で最大5）
   const rows=[];
   Object.entries(session.perTag).forEach(([k,v])=>{ if (v.ans>=3) rows.push({kind:'分野', key:k, ans:v.ans, acc: Math.round((v.cor/v.ans)*100)}); });
   Object.entries(session.perYear).forEach(([k,v])=>{ if (v.ans>=3) rows.push({kind:'年度', key:k, ans:v.ans, acc: Math.round((v.cor/v.ans)*100)}); });
   rows.sort((a,b)=>a.acc-b.acc || b.ans-a.ans);
 
-  if (rows.length===0){
+  if (!rows.length){
     els.weaknessList.innerHTML = '<p class="notice">（今回の回答数が少ないため、弱点分析は表示できません）</p>';
   }else{
     els.weaknessList.innerHTML = `
@@ -363,13 +322,10 @@ function renderEndPage(){
       </table>`;
   }
 }
-
-// ===== Stats page =====
 function getStatsByTag(){ return loadJSONls(STATS_BY_TAG_KEY, {}); }
 function setStatsByTag(o){ saveJSON(STATS_BY_TAG_KEY, o); }
 function getStatsByYear(){ return loadJSONls(STATS_BY_YEAR_KEY, {}); }
 function setStatsByYear(o){ saveJSON(STATS_BY_YEAR_KEY, o); }
-
 function renderStatsPage(){
   const acc = stats.totalAnswered ? Math.round((stats.totalCorrect / stats.totalAnswered)*100) : 0;
   els.statsOverview.innerHTML = `累計 正答率：<b>${acc}%</b>（正解 ${stats.totalCorrect} / 全 ${stats.totalAnswered}）`;
@@ -450,15 +406,10 @@ els.resetStatsBtn.addEventListener('click', ()=>{
   toTop(); renderCardGrid(); populateFilters(); updateMatchCount();
 });
 
-function updateProgressBar(){
-  const percent = Math.round(((index+1)/Math.max(order.length,1))*100);
-  els.progressBar.style.width = percent + '%';
-}
-
 // ===== Init =====
 (async function init(){
   try{
-    questions = await loadJSON('./questions.json?v=20');
+    questions = await loadJSON('./questions.json?v=21');
     renderCardGrid();
     populateFilters();
     updateMatchCount();
