@@ -1,10 +1,10 @@
-// sw.js (cache bump for new pages)
-const CACHE_VERSION = 'v10';
+// sw.js
+const CACHE_VERSION = 'v11';
 const CACHE_NAME = `quiz-cache-${CACHE_VERSION}`;
 const URLS_TO_CACHE = [
   './',
   './index.html',
-  './app.js?v=10',
+  './app.js?v=11',
   './questions.json',
   './manifest.webmanifest',
   './icons/icon-192.png',
@@ -20,7 +20,9 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k.startsWith('quiz-cache-') && k !== CACHE_NAME).map(k => caches.delete(k)));
+    await Promise.all(keys
+      .filter(k => k.startsWith('quiz-cache-') && k !== CACHE_NAME)
+      .map(k => caches.delete(k)));
     await self.clients.claim();
   })());
 });
@@ -31,7 +33,6 @@ self.addEventListener('fetch', (event) => {
     if (cached) return cached;
     try {
       const res = await fetch(event.request);
-      // HTML以外をキャッシュ（雑に）
       if (!event.request.url.endsWith('.html')) cache.put(event.request, res.clone());
       return res;
     } catch (e) {
