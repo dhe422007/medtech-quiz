@@ -20,7 +20,6 @@ select,button{border:1px solid var(--ring);background:#fff;border-radius:10px;pa
 button{cursor:pointer}
 button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 button.ghost{background:#fff}
-.linklike{border:none;background:transparent;color:var(--accent);cursor:pointer}
 .card{background:var(--card);border:1px solid var(--ring);border-radius:16px;padding:16px;margin:16px 0;box-shadow:0 2px 8px rgba(15,23,42,.04)}
 .progress{height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden}
 .progress>span{display:block;height:100%;background:var(--accent);width:0%}
@@ -35,19 +34,13 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:24px}
 .stats{display:flex;gap:12px;color:var(--muted);font-size:14px}
 .view{display:none}
 .view.active{display:block}
-/* results & stats tables */
-table{width:100%;border-collapse:collapse;margin-top:8px}
-th,td{border:1px solid var(--ring);padding:8px;text-align:left}
-th{background:#f8fafc}
-.badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--ring);font-size:12px;color:var(--muted)}
 .notice.center{display:block;text-align:center;margin:6px 0;color:var(--muted);font-size:13px}
-.header-right{margin-left:auto;display:flex;gap:8px;align-items:center}
 </style>
 </head>
 <body>
 <header>
   <div class="container">
-    <h1>臨床検査技師 臨床生理　国試クイズ</h1>
+    <h1>臨床検査技師 国試クイズ</h1>
     <div class="row">
       <select id="tagFilter" title="分野フィルタ"><option value="">全分野</option></select>
       <select id="yearFilter" title="年度フィルタ"><option value="">全年度</option></select>
@@ -64,22 +57,18 @@ th{background:#f8fafc}
         <span>連続正解: <b id="streak">0</b></span>
       </div>
     </div>
-
-    <div class="row" id="examCountdownWrap" style="gap:12px; align-items:center;">
+    <div class="row" id="examCountdownWrap" style="gap:12px; align-items:center; margin-top:6px;">
       <span>次回試験日: <b>2026/02/18</b></span>
       <span id="countdown" style="font-weight:bold;">残り -- 日</span>
     </div>
-
     <div class="progress"><span id="progressBar"></span></div>
-
-    <div class="notice center" style="margin:8px 0; font-size:13px; color:#64748b;">
-      ※ 成績はこの端末の中だけに保存されます（サーバには送信されません）。
-    </div>
+    <span class="notice center">※ 成績はこの端末の中だけに保存されます（サーバには送信されません）。</span>
   </div>
 </header>
 
 <main class="container">
-  <!-- Top View（元のシンプル構成） -->
+
+  <!-- Top View -->
   <section id="viewTop" class="view active">
     <div class="card">
       <p>年度・分野で絞り込んで「この条件で開始」を押してください。画像付き・複数正解の問題にも対応しています。</p>
@@ -90,13 +79,82 @@ th{background:#f8fafc}
     </div>
   </section>
 
-  <!-- 以降の Quiz / End はそのままでOK -->
+  <!-- Quiz View -->
+  <section id="viewQuiz" class="view">
+    <div class="card" id="quizCard">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px;">
+        <div><b id="qid">---</b></div>
+        <button id="bookmarkBtn" class="ghost">☆ ブックマーク</button>
+      </div>
+      <h2 id="questionText" style="margin:6px 0 0 0; font-size:18px;"></h2>
+      <img id="qImage" class="hidden" alt="">
+      <div id="tagsWrap" class="row"></div>
+      <div id="choices" style="margin-top:8px;"></div>
+      <div id="explain" class="hidden" style="margin-top:12px;"></div>
+      <div class="row" style="justify-content:space-between;margin-top:8px;">
+        <button id="prevBtn">◀ 前へ</button>
+        <button id="nextBtn" class="primary">解答する</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- End (Results) View -->
+  <section id="viewEnd" class="view">
+    <div class="card" style="text-align:center;">
+      <h2>結果</h2>
+      <p>今回の正答率：<b id="finalAccuracy">0%</b></p>
+      <p><span id="finalCounts">—</span></p>
+      <p id="finalDate" class="notice center"></p>
+      <p id="finalDuration" class="notice center"></p>
+
+      <div id="finalWeakness" style="margin-top:12px;text-align:left;">
+        <h3 style="margin:0 0 6px;">今回の弱点（分野・年度）</h3>
+        <div id="weaknessList">—</div>
+      </div>
+
+      <div class="row" style="justify-content:center;margin-top:12px;">
+        <button id="backHomeBtn" class="primary">トップページに戻る</button>
+        <button id="toStatsBtn2" class="ghost">成績・弱点を見る</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats View -->
+  <section id="viewStats" class="view">
+    <div class="card">
+      <h2 style="margin-top:0;">成績・弱点</h2>
+      <p class="notice center">この端末の学習履歴から自動集計しています。</p>
+      <div id="statsOverview">—</div>
+
+      <h3>分野別 成績</h3>
+      <table id="statsByTagTbl">
+        <thead><tr><th>分野</th><th>正答率</th><th>正解/回答</th></tr></thead>
+        <tbody></tbody>
+      </table>
+
+      <h3 style="margin-top:16px;">年度別 成績</h3>
+      <table id="statsByYearTbl">
+        <thead><tr><th>年度</th><th>正答率</th><th>正解/回答</th></tr></thead>
+        <tbody></tbody>
+      </table>
+
+      <div style="margin-top:16px;" class="row">
+        <button id="reviewWrongsBtn" class="primary">間違えた問題だけでやり直す</button>
+        <button id="reviewBookmarksBtn" class="ghost">ブックマークだけでやる</button>
+        <button id="resetStatsBtn" class="ghost" title="全ての履歴を消去">学習履歴をリセット</button>
+      </div>
+
+      <div style="margin-top:8px;">
+        <button id="backTopBtn" class="ghost">← トップへ戻る</button>
+      </div>
+    </div>
+  </section>
+
 </main>
 
+<footer>© 2025 H.Ueno</footer>
 
-<footer>© 2025 H.U.</footer>
-
-<script src="./app.js?v=10"></script>
+<script src="./app.js?v=11"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
