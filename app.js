@@ -1,93 +1,476 @@
-/* ===========================================
-   臨床生理アプリ v15.2.8 (choices=5, choice image, explanation)
-=========================================== */
-const BUILD='2025-10-20-cs-15.2.8';
-const DATE_TARGET='2026-02-18T00:00:00+09:00';
-const TRY_EXTS=['.png','.jpg','.jpeg','.webp','.gif','.svg'];
-const q$=(q)=>document.querySelector(q), q$$=(q)=>Array.from(document.querySelectorAll(q));
-const state={screen:'home',all:[],filtered:[],idx:0,tags:[],years:[],tagFilter:'',yearFilter:'',session:null};
+// app.js (結果ページ強化 + 成績・弱点ページ実装)
+const STATE_KEY = 'quiz_state_v4';
+const BOOKMARK_KEY = 'quiz_bookmarks_v1';
+const WRONG_KEY = 'quiz_wrongs_v1';
+const STATS_BY_TAG_KEY = 'quiz_stats_by_tag_v2';
+const STATS_BY_YEAR_KEY = 'quiz_stats_by_year_v1';
 
-window.addEventListener('DOMContentLoaded',boot);
-function countdown(){const n=q$('#countdown');if(!n)return;const t=new Date(DATE_TARGET);const tick=()=>{n.textContent=`試験日まで残り ${Math.max(0,Math.ceil((t-new Date())/86400000))} 日`;};tick();setInterval(tick,60000);}
+let questions = [];
+let order = [];
+let index = 0;
+let mode = 'all';
+let deferredPrompt = null;
 
-async function boot(){
-  countdown();
-  try{
-    const res=await fetch(`./questions.json?v=${encodeURIComponent(BUILD)}`,{cache:'no-store'});
-    if(!res.ok) throw new Error(res.status);
-    const raw=await res.json();
-    if(!Array.isArray(raw)) throw new Error('questions.json が配列ではありません');
-    state.all=raw.map(normalize).filter(q=>q.choices.length===5);
-  }catch(e){
-    console.error(e);
-    const box=q$('#alert'); if(box){box.textContent='questions.json の読み込みに失敗しました。'; box.classList.remove('hidden');}
-    return;
+let selectedSet = new Set();
+let answered = false;
+
+// セッション計測
+let session = { startAt: null, perTag: {}, perYear: {} };
+
+const els = {
+  tagFilter: document.getElementById('tagFilter'),
+  yearFilter: document.getElementById('yearFilter'),
+  modeSelect: document.getElementById('modeSelect'),
+  startBtn: document.getElementById('startBtn'),
+  shuffleBtn: document.getElementById('shuffleBtn'),
+  progressNum: document.getElementById('progressNum'),
+  accuracy: document.getElementById('accuracy'),
+  streak: document.getElementById('streak'),
+  progressBar: document.getElementById('progressBar'),
+  viewTop: document.getElementById('viewTop'),
+  viewQuiz: document.getElementById('viewQuiz'),
+  viewEnd: document.getElementById('viewEnd'),
+  viewStats: document.getElementById('viewStats'),
+  qid: document.getElementById('qid'),
+  questionText: document.getElementById('questionText'),
+  qImage: document.getElementById('qImage'),
+  tagsWrap: document.getElementById('tagsWrap'),
+  choices: document.getElementById('choices'),
+  explain: document.getElementById('explain'),
+  prevBtn: document.getElementById('prevBtn'),
+  nextBtn: document.getElementById('nextBtn'),
+  bookmarkBtn: document.getElementById('bookmarkBtn'),
+  finalAccuracy: document.getElementById('finalAccuracy'),
+  finalCounts: document.getElementById('finalCounts'),
+  finalDate: document.getElementById('finalDate'),
+  finalDuration: document.getElementById('finalDuration'),
+  weaknessList: document.getElementById('weaknessList'),
+  backHomeBtn: document.getElementById('backHomeBtn'),
+  toStatsBtn: document.getElementById('toStatsBtn'),
+  toStatsBtn2: document.getElementById('toStatsBtn2'),
+  topSummary: document.getElementById('topSummary'),
+  resumeBtn: document.getElementById('resumeBtn'),
+  resumeInfo: document.getElementById('resumeInfo'),
+  statsOverview: document.getElementById('statsOverview'),
+  statsByTagTbl: document.querySelector('#statsByTagTbl tbody'),
+  statsByYearTbl: document.querySelector('#statsByYearTbl tbody'),
+  reviewWrongsBtn: document.getElementById('reviewWrongsBtn'),
+  reviewBookmarksBtn: document.getElementById('reviewBookmarksBtn'),
+  resetStatsBtn: document.getElementById('resetStatsBtn'),
+  backTopBtn: document.getElementById('backTopBtn'),
+};
+
+function updateCountdown(){
+  const now = new Date();
+  const exam = new Date('2026-02-18T00:00:00+09:00');
+  const msPerDay = 24*60*60*1000;
+  let days = Math.ceil((exam - now)/msPerDay);
+  if (days < 0) days = 0;
+  const el = document.getElementById('countdown');
+  if (el) el.textContent = `残り ${days} 日`;
+}
+function scheduleCountdownRefresh(){
+  updateCountdown();
+  const now = new Date(); const next = new Date(now);
+  next.setDate(now.getDate()+1); next.setHours(0,0,0,0);
+  setTimeout(()=>{ updateCountdown(); setInterval(updateCountdown, 24*60*60*1000); }, next-now);
+}
+
+// 画像ヘルパー
+const isNoImage = (s)=>{ if(!s) return true; const t=String(s).trim(); if(!t) return true; return /^(-|なし|null|na)$/i.test(t); };
+const normalizeImagePath = (s)=>{
+  if (!s) return null; const t=String(s).trim(); if(!t) return null;
+  if (/^(-|なし|null|na)$/i.test(t)) return null;
+  if (/^\.[a-zA-Z0-9]+$/.test(t)) return null;
+  if (!/\.(jpg|jpeg|png|webp|gif)$/i.test(t)) return null;
+  return t;
+};
+
+// 汎用
+const shuffle = (arr)=>{ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; };
+const loadJSON = async (path)=>{ const res=await fetch(path); if(!res.ok) throw new Error('failed to load '+path); return await res.json(); };
+
+let stats = { totalAnswered:0, totalCorrect:0, streak:0 };
+
+const saveState = ()=>{
+  const state = {
+    index, order, mode, stats,
+    currentTag: els.tagFilter.value,
+    currentYear: els.yearFilter.value,
+    sessionStart: session.startAt
+  };
+  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+};
+const loadState = ()=>{
+  const s = localStorage.getItem(STATE_KEY);
+  if (!s) return null;
+  try { return JSON.parse(s); } catch { return null; }
+};
+const getBookmarks = ()=> new Set(JSON.parse(localStorage.getItem(BOOKMARK_KEY) || '[]'));
+const setBookmarks = (set)=> localStorage.setItem(BOOKMARK_KEY, JSON.stringify([...set]));
+const getWrongs = ()=> new Set(JSON.parse(localStorage.getItem(WRONG_KEY) || '[]'));
+const setWrongs = (set)=> localStorage.setItem(WRONG_KEY, JSON.stringify([...set]));
+const getStatsByTag = ()=> JSON.parse(localStorage.getItem(STATS_BY_TAG_KEY) || '{}');
+const setStatsByTag = (obj)=> localStorage.setItem(STATS_BY_TAG_KEY, JSON.stringify(obj));
+const getStatsByYear = ()=> JSON.parse(localStorage.getItem(STATS_BY_YEAR_KEY) || '{}');
+const setStatsByYear = (obj)=> localStorage.setItem(STATS_BY_YEAR_KEY, JSON.stringify(obj));
+
+const isYearTag = (t)=>{ const s=String(t).trim().toLowerCase(); return /^\d{4}$/.test(s) || s==='original'; };
+const asCorrectArray = (ans)=> Array.isArray(ans) ? ans.slice().map(Number) : [Number(ans)];
+
+const showView = (name)=>{
+  ['viewTop','viewQuiz','viewEnd','viewStats'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  if (name==='top') els.viewTop.classList.add('active');
+  if (name==='quiz') els.viewQuiz.classList.add('active');
+  if (name==='end') els.viewEnd.classList.add('active');
+  if (name==='stats') { els.viewStats.classList.add('active'); renderStatsPage(); }
+};
+
+const updateStatsUI = ()=>{
+  els.progressNum.textContent = `${Math.min(index+1, Math.max(order.length,1))}/${order.length}`;
+  const acc = stats.totalAnswered ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100) : 0;
+  els.accuracy.textContent = `${acc}%`;
+  els.streak.textContent = stats.streak;
+  const percent = Math.round(((index+1)/Math.max(order.length,1))*100);
+  els.progressBar.style.width = percent + '%';
+};
+const renderTags = (q)=>{
+  els.tagsWrap.innerHTML = '';
+  (q.tags || []).forEach(t=>{
+    const span=document.createElement('span');
+    span.className='tag'; span.textContent=t;
+    els.tagsWrap.appendChild(span);
+  });
+};
+
+// 採点
+const gradeCurrent = ()=>{
+  const q = questions[order[index]];
+  let correctArray = asCorrectArray(q.answerIndex).map(Number);
+  // 1始まりデータにも対応
+  const maxChoice = q.choices.length;
+  const isOneBased = correctArray.length>0 && correctArray.every(n=>Number.isInteger(n) && n>=1 && n<=maxChoice) && !correctArray.includes(0);
+  if (isOneBased) correctArray = correctArray.map(n=>n-1);
+
+  const pickedArray = [...selectedSet].sort((a,b)=>a-b);
+  const isAllMatch = correctArray.length===pickedArray.length &&
+    correctArray.sort((a,b)=>a-b).every((v,i)=>v===pickedArray[i]);
+
+  // 表示
+  const buttons=[...document.querySelectorAll('.choice')];
+  buttons.forEach(b=>{
+    const bi=Number(b.dataset.index);
+    if (correctArray.includes(bi)) b.classList.add('correct');
+    if (selectedSet.has(bi) && !correctArray.includes(bi)) b.classList.add('incorrect');
+    b.disabled=true;
+  });
+
+  // 累計
+  stats.totalAnswered += 1;
+  if (isAllMatch) {
+    stats.totalCorrect += 1; stats.streak += 1;
+    const wr=getWrongs(); wr.delete(q.id); setWrongs(wr);
+  } else {
+    stats.streak = 0; const wr=getWrongs(); wr.add(q.id); setWrongs(wr);
   }
-  computeFacets(); initHome(); initFilters(); bindUI(); showHome(); setFooter();
-}
+  localStorage.setItem('quiz_lastAnswered', new Date().toISOString());
+  els.explain.classList.remove('hidden');
+  updateStatsUI();
 
-function normalize(src){
-  const q={...src};
-  q.question=String(q.question??q.問題??q.設問??q.問??'').trim();
-  let choices=Array.isArray(q.choices)?q.choices:[q.choice1,q.choice2,q.choice3,q.choice4,q.choice5];
-  choices=(choices||[]).slice(0,5).map(v=>v==null?'':String(v)); while(choices.length<5) choices.push('');
-  q.choices=choices;
-  let ans=q.answerIndex;
-  if(ans===undefined||ans===null){
-    const s=String(q.answer??q.解答??'').trim();
-    if(s){ const nums=s.split(/[,/・\s]+/).filter(Boolean).map(x=>parseInt(x,10)); ans=nums.length>1?Array.from(new Set(nums)).sort((a,b)=>a-b):(nums[0]??0);} else { ans=0; }
+  // セッション集計
+  (q.tags||[]).forEach(t=>{
+    if (!session.perTag[t]) session.perTag[t]={ans:0, cor:0};
+    session.perTag[t].ans += 1;
+    if (isAllMatch) session.perTag[t].cor += 1;
+  });
+  // 年度集計
+  (q.tags||[]).forEach(t=>{
+    if (isYearTag(t)) {
+      if (!session.perYear[t]) session.perYear[t]={ans:0, cor:0};
+      session.perYear[t].ans += 1;
+      if (isAllMatch) session.perYear[t].cor += 1;
+    }
+  });
+
+  // 累積（端末保存）
+  const sbt=getStatsByTag();
+  (q.tags||[]).forEach(t=>{
+    if (!sbt[t]) sbt[t]={answered:0, correct:0};
+    sbt[t].answered += 1; if (isAllMatch) sbt[t].correct += 1;
+  });
+  setStatsByTag(sbt);
+
+  const sby=getStatsByYear();
+  (q.tags||[]).forEach(t=>{
+    if (isYearTag(t)) {
+      if (!sby[t]) sby[t]={answered:0, correct:0};
+      sby[t].answered += 1; if (isAllMatch) sby[t].correct += 1;
+    }
+  });
+  setStatsByYear(sby);
+
+  answered = true;
+  els.nextBtn.textContent = (index < order.length-1) ? '次へ ▶' : '結果を見る';
+  saveState();
+};
+
+// 出題
+const renderQuestion = ()=>{
+  const q = questions[order[index]];
+  els.qid.textContent = q.id || `Q${order[index]+1}`;
+  els.questionText.textContent = q.question;
+
+  // 画像
+  const imgSrc = normalizeImagePath(q.image);
+  if (imgSrc) {
+    els.qImage.classList.remove('hidden');
+    els.qImage.alt = q.imageAlt || '';
+    els.qImage.onerror = ()=>{ els.qImage.classList.add('hidden'); els.qImage.removeAttribute('src'); els.qImage.removeAttribute('alt'); };
+    els.qImage.onload = ()=>{};
+    els.qImage.src = imgSrc;
+  } else {
+    els.qImage.classList.add('hidden'); els.qImage.removeAttribute('src'); els.qImage.removeAttribute('alt');
   }
-  q.answerIndex=ans;
-  if(Array.isArray(q.tags)) q.tags=q.tags.map(String); else { const t=String(q.tags??'').trim(); q.tags=t? t.split(/[,\u3001\uFF0C/／\|\s]+/).filter(Boolean): []; }
-  let img=(q.image??'').toString().trim(); if(img && !/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(img)) img=img.replace(/\/+$/,'');
-  q.imageBase=img;
-  q.explanation=q.explanation??q.解説??null;
-  return q;
+
+  renderTags(q);
+  els.explain.classList.add('hidden');
+  els.explain.textContent = q.explanation || '';
+  els.choices.innerHTML = '';
+
+  selectedSet = new Set(); answered=false;
+  els.nextBtn.textContent='解答する'; els.nextBtn.disabled=true;
+
+  const idxs = q.choices.map((_,i)=>i);
+  const shuffled = shuffle(idxs);
+  shuffled.forEach(i=>{
+    const btn=document.createElement('button'); btn.className='choice';
+    const val=q.choices[i];
+    const choiceImg = (typeof val==='string') ? normalizeImagePath(val) : null;
+    if (choiceImg) {
+      btn.textContent=''; const img=document.createElement('img');
+      img.alt=`choice${i+1}`; img.style.maxWidth='100%'; img.style.height='auto';
+      img.onerror=()=>{ img.remove(); btn.textContent='[画像なし]'; };
+      img.onload=()=>{}; img.src=choiceImg; btn.appendChild(img);
+    } else {
+      btn.textContent = val;
+    }
+    btn.dataset.index=i;
+    btn.addEventListener('click',()=>{
+      if (answered) return;
+      if (selectedSet.has(i)) { selectedSet.delete(i); btn.classList.remove('selected'); }
+      else { selectedSet.add(i); btn.classList.add('selected'); }
+      els.nextBtn.disabled = selectedSet.size===0;
+    });
+    els.choices.appendChild(btn);
+  });
+
+  const bms=getBookmarks();
+  els.bookmarkBtn.textContent = bms.has(q.id) ? '★ ブックマーク中' : '☆ ブックマーク';
+
+  updateStatsUI(); saveState();
+};
+
+// フィルタ
+const applyFilter = ()=>{
+  const tagSel=els.tagFilter.value, yearSel=els.yearFilter.value;
+  const wr=getWrongs(), bms=getBookmarks();
+
+  const base = questions.map((q,i)=>i).filter(i=>{
+    const tags=questions[i].tags||[];
+    if (tagSel){ const hasTag=tags.some(t=>!isYearTag(t) && String(t)===tagSel); if(!hasTag) return false; }
+    if (yearSel){ const hasYear=tags.some(t=>isYearTag(t) && String(t)===yearSel); if(!hasYear) return false; }
+    if (mode==='wrong' && !wr.has(questions[i].id)) return false;
+    if (mode==='bookmarked' && !bms.has(questions[i].id)) return false;
+    return true;
+  });
+
+  order = base; index=0;
+};
+const populateFilters = ()=>{
+  const yearSet=new Set(), tagSet=new Set();
+  questions.forEach(q=>(q.tags||[]).forEach(t=>(isYearTag(t)?yearSet:tagSet).add(String(t))));
+  const curTag=els.tagFilter.value;
+  els.tagFilter.innerHTML = '<option value="">全分野</option>' + [...tagSet].sort().map(t=>`<option value="${t}">${t}</option>`).join('');
+  if ([...tagSet].includes(curTag)) els.tagFilter.value = curTag;
+
+  const yearLabel=(y)=>(String(y).toLowerCase()==='original' ? 'original（自作）' : y);
+  const years=[...yearSet].sort((a,b)=>{ const an=/^\d{4}$/.test(a)?parseInt(a,10):Infinity; const bn=/^\d{4}$/.test(b)?parseInt(b,10):Infinity; return an-bn || String(a).localeCompare(String(b)); });
+  const curYear=els.yearFilter.value;
+  els.yearFilter.innerHTML = '<option value="">全年度</option>' + years.map(y=>`<option value="${y}">${yearLabel(y)}</option>`).join('');
+  if ([...yearSet].includes(curYear)) els.yearFilter.value = curYear;
+};
+
+// 結果ページ描画
+function renderEndPage(){
+  const acc = stats.totalAnswered ? Math.round((stats.totalCorrect / stats.totalAnswered)*100) : 0;
+  els.finalAccuracy.textContent = `${acc}%`;
+  const wrongs = stats.totalAnswered - stats.totalCorrect;
+  els.finalCounts.textContent = `正解 ${stats.totalCorrect} / 不正解 ${wrongs}（全${stats.totalAnswered}問）`;
+
+  const jp = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+  els.finalDate.textContent = `回答日時：${jp}`;
+
+  // 経過時間
+  if (session.startAt) {
+    const ms = Date.now() - session.startAt;
+    const m = Math.floor(ms/60000), s = Math.floor((ms%60000)/1000);
+    els.finalDuration.textContent = `所要時間：${m}分${s}秒`;
+  } else {
+    els.finalDuration.textContent = '';
+  }
+
+  // 今回の弱点（回答3以上、正答率昇順で上位5）
+  const listEl = document.getElementById('weaknessList');
+  const rows=[];
+  Object.entries(session.perTag).forEach(([k,v])=>{
+    if (v.ans>=3){ rows.push({kind:'分野', key:k, ans:v.ans, acc: v.ans? Math.round((v.cor/v.ans)*100):0}); }
+  });
+  Object.entries(session.perYear).forEach(([k,v])=>{
+    if (v.ans>=3){ rows.push({kind:'年度', key:k, ans:v.ans, acc: v.ans? Math.round((v.cor/v.ans)*100):0}); }
+  });
+  rows.sort((a,b)=>a.acc-b.acc || b.ans-a.ans);
+  if (rows.length===0) {
+    listEl.innerHTML = '<p>（今回の回答数が少ないため、弱点分析はありません）</p>';
+  } else {
+    listEl.innerHTML = '<table><thead><tr><th>種別</th><th>ラベル</th><th>正答率</th><th>回答数</th></tr></thead><tbody>'
+      + rows.slice(0,5).map(r=>`<tr><td>${r.kind}</td><td>${r.key}</td><td>${r.acc}%</td><td>${r.ans}</td></tr>`).join('')
+      + '</tbody></table>';
+  }
 }
 
-function computeFacets(){const tagSet=new Set(),yearSet=new Set();for(const q of state.all){(q.tags||[]).forEach(t=>{if(/^\d{4}$/.test(t)||t==='original')yearSet.add(t);else tagSet.add(t);});}state.tags=[...tagSet];state.years=[...yearSet].sort();}
+// 成績ページ描画（累積）
+function renderStatsPage(){
+  // 概要
+  const totalAns = stats.totalAnswered, totalCor = stats.totalCorrect;
+  const acc = totalAns? Math.round((totalCor/totalAns)*100):0;
+  els.statsOverview.innerHTML = `累計 正答率：<b>${acc}%</b>（正解 ${totalCor} / 全 ${totalAns}）`;
 
-function initHome(){
-  const ysel=q$('#homeYearSel'), tsel=q$('#homeTagSel');
-  state.years.forEach(y=> ysel.insertAdjacentHTML('beforeend',`<option value="${esc(y)}">${esc(y)}</option>`));
-  state.tags.forEach(t=> tsel.insertAdjacentHTML('beforeend',`<option value="${esc(t)}">${esc(t)}</option>`));
-  const update=()=>{const c=count({year: ysel.value, tag: tsel.value}); q$('#homeCount').innerHTML = c===0?`<span style="color:#ef4444;font-weight:600;">該当 0 問（条件を変更してください）</span>`:`該当 ${c} 問`;};
-  ysel.addEventListener('change',update); tsel.addEventListener('change',update);
+  // 分野別
+  const sbt = getStatsByTag();
+  const rowsTag = Object.entries(sbt).map(([k,v])=>{
+    const ans=v.answered||0, cor=v.correct||0, a=ans?Math.round((cor/ans)*100):0;
+    return {k, ans, cor, a};
+  }).sort((a,b)=>a.k.localeCompare(b.k));
+  els.statsByTagTbl.innerHTML = rowsTag.length ? rowsTag.map(r=>`<tr><td>${r.k}</td><td>${r.a}%</td><td>${r.cor}/${r.ans}</td></tr>`).join('') : '<tr><td colspan="3">（データなし）</td></tr>';
 
-  const yNode=q$('#homeYears'); yNode.innerHTML='';
-  state.years.forEach(y=>{ const c=count({year:y, tag: tsel.value}); const d=document.createElement('div'); d.className='tile'; d.innerHTML=`<h3>${esc(y)}</h3><div class="muted">${c}問</div>`; d.addEventListener('click',()=>{ ysel.value=y; update(); }); yNode.appendChild(d); });
-
-  const tNode=q$('#homeTags'); tNode.innerHTML='';
-  const allDiv=document.createElement('div'); allDiv.className='tile'; allDiv.innerHTML=`<h3>全ての分野</h3><div class="muted">${state.all.length}問</div>`; allDiv.addEventListener('click',()=>{ tsel.value=''; update(); }); tNode.appendChild(allDiv);
-  state.tags.forEach(t=>{ const c=count({year: ysel.value, tag: t}); const d=document.createElement('div'); d.className='tile'; d.innerHTML=`<h3>${esc(t)}</h3><div class="muted">${c}問</div>`; d.addEventListener('click',()=>{ tsel.value=t; update(); }); tNode.appendChild(d); });
-
-  q$('#homeStartBtn').addEventListener('click',()=> startFromHome({year: ysel.value, tag: tsel.value}));
-  q$('#homeStartAllBtn').addEventListener('click',()=> startFromHome({year:'', tag:''}));
-  update();
+  // 年度別
+  const sby = getStatsByYear();
+  const rowsYear = Object.entries(sby).map(([k,v])=>{
+    const ans=v.answered||0, cor=v.correct||0, a=ans?Math.round((cor/ans)*100):0;
+    return {k, ans, cor, a};
+  }).sort((a,b)=>{
+    const an=/^\d{4}$/.test(a.k)?parseInt(a.k,10):Infinity;
+    const bn=/^\d{4}$/.test(b.k)?parseInt(b.k,10):Infinity;
+    return an-bn || a.k.localeCompare(b.k);
+  });
+  els.statsByYearTbl.innerHTML = rowsYear.length ? rowsYear.map(r=>`<tr><td>${r.k}</td><td>${r.a}%</td><td>${r.cor}/${r.ans}</td></tr>`).join('') : '<tr><td colspan="3">（データなし）</td></tr>';
 }
-function count({year='',tag=''}){return state.all.filter(q=>{const t=q.tags||[];return (year===''||t.includes(year))&&(tag===''||t.includes(tag));}).length;}
 
-function initFilters(){const tagSel=q$('#tagFilter'), yearSel=q$('#yearFilter');state.tags.forEach(t=> tagSel.insertAdjacentHTML('beforeend',`<option value="${esc(t)}">${esc(t)}</option>`));state.years.forEach(y=> yearSel.insertAdjacentHTML('beforeend',`<option value="${esc(y)}">${esc(y)}</option>`));}
-function applyFilters(){const tag=(q$('#tagFilter')?.value||state.tagFilter)||'';const year=(q$('#yearFilter')?.value||state.yearFilter)||'';state.filtered=state.all.filter(q=>{const t=q.tags||[];return (year===''||t.includes(year))&&(tag===''||t.includes(tag));});state.tagFilter=tag;state.yearFilter=year;state.idx=0;}
-function startFromHome({year='',tag=''}={}){const ySel=q$('#yearFilter'),tSel=q$('#tagFilter');if(ySel)ySel.value=year;if(tSel)tSel.value=tag;state.yearFilter=year;state.tagFilter=tag;applyFilters();const n=state.filtered.length;if(!n){const a=q$('#alert');if(a){a.textContent='該当問題が0件のため開始できません。';a.classList.remove('hidden');}return;}state.session={startedAt:Date.now(),correct:0,total:n};showQuiz();render();}
+// 結果へ / 戻る
+const next = ()=>{
+  if (!answered) { gradeCurrent(); return; }
+  if (index < order.length - 1) {
+    index += 1; renderQuestion();
+  } else {
+    renderEndPage(); showView('end');
+  }
+};
+const prev = ()=>{ if (index>0){ index-=1; renderQuestion(); } };
 
-function showHome(){q$('#homeScreen').classList.remove('hidden');q$('#quizScreen').classList.add('hidden');q$('#resultScreen').classList.add('hidden');state.screen='home'; setFooter();}
-function showQuiz(){q$('#homeScreen').classList.add('hidden');q$('#quizScreen').classList.remove('hidden');q$('#resultScreen').classList.add('hidden');state.screen='quiz'; setFooter();}
-function showResult(){q$('#homeScreen').classList.add('hidden');q$('#quizScreen').classList.add('hidden');q$('#resultScreen').classList.remove('hidden');state.screen='result'; setFooter();}
-function setFooter(){const home=state.screen==='home'; q$('#prevBtn').classList.toggle('hidden',home); q$('#nextBtn').classList.toggle('hidden',home); q$('#progress').classList.toggle('hidden',home);}
+// イベント
+document.getElementById('toStatsBtn').addEventListener('click', ()=> showView('stats'));
+document.getElementById('toStatsBtn2').addEventListener('click', ()=> showView('stats'));
+els.backHomeBtn.addEventListener('click', ()=> showView('top'));
+els.backTopBtn.addEventListener('click', ()=> showView('top'));
 
-function render(){if(state.screen!=='quiz')return;const total=state.filtered.length;const qtext=q$('#qtext'),qimg=q$('#qimage'),explain=q$('#explain');const q=state.filtered[state.idx];qtext.textContent=q.question||'';q$('#qmeta').textContent=`ID：${q.id??`idx:${state.idx}`}`;renderImage(q);renderChoices(q);explain.classList.add('hidden');explain.innerHTML='';q$('#progress').textContent=`${state.idx+1} / ${total}`;updateNextButtonAvailability(q);}
+els.startBtn.addEventListener('click', ()=>{
+  mode = els.modeSelect.value;
+  applyFilter();
+  if (order.length===0){ alert('該当の問題がありません。'); return; }
+  order = shuffle(order); index=0;
+  // セッション開始
+  session = { startAt: Date.now(), perTag:{}, perYear:{} };
+  showView('quiz'); renderQuestion();
+});
+els.shuffleBtn.addEventListener('click', ()=>{ order=shuffle(order); index=0; if (els.viewQuiz.classList.contains('active')) renderQuestion(); });
+els.prevBtn.addEventListener('click', prev);
+els.nextBtn.addEventListener('click', next);
 
-function renderImage(q){const node=q$('#qimage');const base=(q.imageBase||q.image||'').trim();if(!base){node.classList.add('hidden');node.innerHTML='';return;}node.classList.remove('hidden');let i=0;const img=document.createElement('img');img.style.maxWidth='100%';img.style.borderRadius='12px';img.style.border='1px solid rgba(15,23,42,.1)';const set=()=>{const src=/\.[a-z]{3,4}$/i.test(base)?base:(base+TRY_EXTS[i]);img.src=src;img.alt='問題図';};img.onerror=()=>{i++;if(i<TRY_EXTS.length)set();else{node.classList.add('hidden');node.innerHTML='';}};set();node.innerHTML='';node.appendChild(img);}
+els.modeSelect.addEventListener('change', (e)=>{ mode=e.target.value; if (els.viewQuiz.classList.contains('active')){ applyFilter(); renderQuestion(); }});
+els.tagFilter.addEventListener('change', ()=>{ if (els.viewQuiz.classList.contains('active')){ applyFilter(); renderQuestion(); }});
+els.yearFilter.addEventListener('change', ()=>{ if (els.viewQuiz.classList.contains('active')){ applyFilter(); renderQuestion(); }});
+els.bookmarkBtn.addEventListener('click', ()=>{
+  const q=questions[order[index]]; const b=getBookmarks();
+  if (b.has(q.id)) b.delete(q.id); else b.add(q.id); setBookmarks(b); renderQuestion();
+});
+els.reviewWrongsBtn.addEventListener('click', ()=>{
+  mode='wrong'; els.modeSelect.value='wrong'; applyFilter();
+  if (order.length===0){ alert('間違えた問題がありません。'); return; }
+  order=shuffle(order); index=0; showView('quiz'); renderQuestion();
+});
+els.reviewBookmarksBtn.addEventListener('click', ()=>{
+  mode='bookmarked'; els.modeSelect.value='bookmarked'; applyFilter();
+  if (order.length===0){ alert('ブックマークがありません。'); return; }
+  order=shuffle(order); index=0; showView('quiz'); renderQuestion();
+});
+els.resetStatsBtn && els.resetStatsBtn.addEventListener('click', ()=>{
+  if (!confirm('この端末に保存された学習履歴（分野・年度の集計）をリセットしますか？\n※ ブックマーク/間違いリスト/進捗も消えます。')) return;
+  localStorage.removeItem(STATE_KEY);
+  localStorage.removeItem(BOOKMARK_KEY);
+  localStorage.removeItem(WRONG_KEY);
+  localStorage.removeItem(STATS_BY_TAG_KEY);
+  localStorage.removeItem(STATS_BY_YEAR_KEY);
+  stats={totalAnswered:0,totalCorrect:0,streak:0};
+  order=[]; index=0;
+  alert('学習履歴をリセットしました。');
+  showView('top'); renderStatsPage();
+});
 
-function renderChoices(q){const wrap=q$('#choices');wrap.innerHTML='';const multi=Array.isArray(q.answerIndex);const order=[0,1,2,3,4];for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];}order.forEach(idx=>{const val=String(q.choices[idx]??'');const btn=document.createElement('button');btn.className='choice';btn.setAttribute('data-idx',String(idx));btn.setAttribute('aria-pressed','false');if(/^assets\//.test(val)||/^images\//.test(val)){const base=/\.[a-z]{3,4}$/i.test(val)?val:val.replace(/\/+$/,'');const img=document.createElement('img');img.style.maxWidth='100%';img.style.display='block';let k=0;const set=()=>{img.src=/\.[a-z]{3,4}$/i.test(base)?base:(base+TRY_EXTS[k]);};img.onerror=()=>{k++;if(k<TRY_EXTS.length)set();else btn.textContent='(画像なし)';};set();btn.appendChild(img);}else{btn.innerHTML=esc(val||'　');}btn.addEventListener('click',()=>{if(multi){btn.classList.toggle('selected');btn.setAttribute('aria-pressed',String(btn.classList.contains('selected')));}else{q$$('#choices .choice').forEach(el=>{el.classList.remove('selected');el.setAttribute('aria-pressed','false');});btn.classList.add('selected');btn.setAttribute('aria-pressed','true');}updateNextButtonAvailability(q);});wrap.appendChild(btn);});q$('#nextBtn').textContent='解答する';}
+// 初期化
+(async function init(){
+  try {
+    questions = await loadJSON('./questions.json?v=10');
+    populateFilters();
 
-function updateNextButtonAvailability(q){const selected=q$$('#choices .choice.selected');const next=q$('#nextBtn');if(Array.isArray(q.answerIndex)){const need=q.answerIndex.length;next.disabled=(selected.length!==need);next.title=selected.length!==need?`この問題は ${need} 個選んでください`:'';}else{next.disabled=(selected.length!==1);next.title=selected.length!==1?'選択肢を1つ選んでください':'';}}
+    const st0 = loadState();
+    const canResume = st0 && Array.isArray(st0.order) && st0.order.length>0;
+    if (canResume && els.resumeBtn && els.resumeInfo) {
+      els.resumeBtn.classList.remove('hidden');
+      const last = localStorage.getItem('quiz_lastAnswered');
+      const when = last ? new Date(last).toLocaleString('ja-JP', { timeZone:'Asia/Tokyo' }) : '—';
+      els.resumeInfo.textContent = `前回の進捗：${Math.min((st0.index||0)+1, st0.order.length)}/${st0.order.length}　最終回答：${when}`;
+      els.resumeBtn.onclick = ()=>{
+        mode = st0.mode || 'all';
+        if (st0.currentTag) els.tagFilter.value = st0.currentTag;
+        if (st0.currentYear) els.yearFilter.value = st0.currentYear;
+        stats = st0.stats || stats;
+        order = st0.order || [];
+        index = Math.min(st0.index||0, Math.max(0, order.length-1));
+        session.startAt = st0.sessionStart || Date.now();
+        showView('quiz'); renderQuestion();
+      };
+    }
 
-function grade(){const q=state.filtered[state.idx];const selectedNodes=q$$('#choices .choice.selected');if(!selectedNodes.length){updateNextButtonAvailability(q);return;}if(Array.isArray(q.answerIndex)&&selectedNodes.length!==q.answerIndex.length){updateNextButtonAvailability(q);return;}const selected=selectedNodes.map(el=>Number(el.getAttribute('data-idx')));const result=isCorrect(selected,q.answerIndex);const answerSet=new Set(Array.isArray(q.answerIndex)?q.answerIndex:[q.answerIndex]);q$$('#choices .choice').forEach(el=>{const i=Number(el.getAttribute('data-idx'));if(answerSet.has(i))el.classList.add('correct');if(selected.includes(i)&&!answerSet.has(i))el.classList.add('incorrect');});const ex=q$('#explain');ex.classList.remove('hidden');const multi=Array.isArray(q.answerIndex);const head=result.ok?(multi?`🎉 全て正解です（${result.total}/${result.total}）`:'🎉 正解です'):(multi?`▲ 部分正解：${result.partial}/${result.total}。残りの選択肢も確認しましょう。`:`✕ 不正解。もう一度見直しましょう。`);ex.innerHTML=`<div>${head}</div>${q.explanation?`<div style="margin-top:6px;">${esc(q.explanation)}</div>`:''}`;if(state.idx>=state.filtered.length-1){q$('#nextBtn').textContent='結果を見る';}else{q$('#nextBtn').textContent='次へ';}q$('#nextBtn').disabled=false;}
-function next(){if(state.screen==='home')return;if(state.screen==='result'){showHome();return;}const btn=q$('#nextBtn');if(btn.textContent.includes('解答')){grade();return;}if(btn.textContent.includes('結果')){showResult();return;}if(state.idx<state.filtered.length-1)state.idx+=1;render();}
-function prev(){if(state.screen!=='quiz')return;if(state.idx>0)state.idx-=1;render();}
-function bindUI(){q$('#homeBtn')?.addEventListener('click',showHome);q$('#statsBtn')?.addEventListener('click',()=>alert('成績・弱点は後日実装'));q$('#tagFilter')?.addEventListener('change',()=>{applyFilters();render();});q$('#yearFilter')?.addEventListener('change',()=>{applyFilters();render();});q$('#nextBtn')?.addEventListener('click',next);q$('#prevBtn')?.addEventListener('click',prev);}
-function applyFilters(){const tag=(q$('#tagFilter')?.value||state.tagFilter)||'';const year=(q$('#yearFilter')?.value||state.yearFilter)||'';state.filtered=state.all.filter(q=>{const t=q.tags||[];return (year===''||t.includes(year))&&(tag===''||t.includes(tag));});state.tagFilter=tag;state.yearFilter=year;state.idx=0;}
-function isCorrect(selected,answerIndex){if(Array.isArray(answerIndex)){const c=[...answerIndex].sort((a,b)=>a-b);const u=[...new Set(selected)].sort((a,b)=>a-b);let i=0,j=0,hit=0;while(i<u.length&&j<c.length){if(u[i]===c[j]){hit++;i++;j++;}else if(u[i]<c[j])i++;else j++;}if(c.length!==u.length)return{ok:false,partial:hit,total:c.length};return{ok:c.every((v,k)=>v===u[k]),partial:hit,total:c.length};}return{ok:(selected.length===1&&selected[0]===answerIndex),partial:(selected.includes(answerIndex)?1:0),total:1};}
-function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+    const st = loadState();
+    if (st) {
+      stats = st.stats || stats;
+      if (st.currentTag) els.tagFilter.value = st.currentTag;
+      if (st.currentYear) els.yearFilter.value = st.currentYear;
+      mode = st.mode || 'all';
+      els.modeSelect.value = mode;
+      session.startAt = st.sessionStart || null;
+      applyFilter();
+    } else {
+      applyFilter();
+    }
+
+    // トップ要約
+    const acc = stats.totalAnswered? Math.round((stats.totalCorrect/stats.totalAnswered)*100):0;
+    els.topSummary.textContent = `累計 正答率 ${acc}%（正解 ${stats.totalCorrect} / 全 ${stats.totalAnswered}）`;
+
+    updateStatsUI();
+    scheduleCountdownRefresh();
+  } catch (e) {
+    console.error(e); alert('questions.json を読み込めませんでした。');
+  }
+})();
