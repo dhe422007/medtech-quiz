@@ -1,10 +1,10 @@
 // sw.js
-const CACHE_VERSION = 'v20';
+const CACHE_VERSION = 'v21';
 const CACHE_NAME = `quiz-cache-${CACHE_VERSION}`;
 const URLS_TO_CACHE = [
   './',
   './index.html',
-  './app.js?v=20',
+  './app.js?v=21',
   './questions.json',
   './manifest.webmanifest',
   './icons/icon-192.png',
