@@ -11,16 +11,16 @@
   --accent:#0ea5e9; --ok:#22c55e; --ng:#ef4444; --ring:#e2e8f0;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);
-  font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","Hiragino Sans","Noto Sans JP","Yu Gothic","Meiryo",sans-serif}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","Hiragino Sans","Noto Sans JP","Yu Gothic","Meiryo",sans-serif}
 header{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--ring);z-index:10}
 .container{max-width:900px;margin:0 auto;padding:16px}
-h1{margin:0 0 8px;font-size:22px}
+h1{margin:0 0 8px 0;font-size:22px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 select,button{border:1px solid var(--ring);background:#fff;border-radius:10px;padding:8px 10px;font-size:14px}
 button{cursor:pointer}
 button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 button.ghost{background:#fff}
+.linklike{border:none;background:transparent;color:var(--accent);cursor:pointer}
 .card{background:var(--card);border:1px solid var(--ring);border-radius:16px;padding:16px;margin:16px 0;box-shadow:0 2px 8px rgba(15,23,42,.04)}
 .progress{height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden}
 .progress>span{display:block;height:100%;background:var(--accent);width:0%}
@@ -35,74 +35,74 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:24px}
 .stats{display:flex;gap:12px;color:var(--muted);font-size:14px}
 .view{display:none}
 .view.active{display:block}
-.notice{font-size:13px;color:#64748b;text-align:center;margin:8px 0}
-.table{width:100%;border-collapse:collapse;font-size:14px}
-.table th,.table td{border:1px solid var(--ring);padding:8px;text-align:left}
-.table th{background:#f8fafc}
-.kpi{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
-.kpi .box{min-width:140px;text-align:center;border:1px solid var(--ring);border-radius:12px;padding:12px;background:#fff}
-.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--ring);background:#f8fafc;color:#475569}
-.linklike{color:var(--accent);text-decoration:underline;cursor:pointer}
-.nav-right{margin-left:auto; display:flex; gap:8px}
+/* results & stats tables */
+table{width:100%;border-collapse:collapse;margin-top:8px}
+th,td{border:1px solid var(--ring);padding:8px;text-align:left}
+th{background:#f8fafc}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--ring);font-size:12px;color:var(--muted)}
+.notice.center{display:block;text-align:center;margin:6px 0;color:var(--muted);font-size:13px}
+.header-right{margin-left:auto;display:flex;gap:8px;align-items:center}
 </style>
 </head>
 <body>
 <header>
   <div class="container">
-    <h1>臨床検査技師 国試クイズ</h1>
-    <div class="row">
-      <select id="tagFilter" title="分野フィルタ"><option value="">全分野</option></select>
-      <select id="yearFilter" title="年度フィルタ"><option value="">全年度</option></select>
-      <select id="modeSelect" title="モード">
-        <option value="all">全て</option>
-        <option value="wrong">間違えた問題のみ</option>
-        <option value="bookmarked">ブックマークのみ</option>
-      </select>
-      <button id="startBtn" class="primary">この条件で開始</button>
-      <button id="shuffleBtn" class="ghost">並び替え</button>
-
-      <div class="stats">
-        <span>進捗: <b id="progressNum">0/0</b></span>
-        <span>正答率: <b id="accuracy">0%</b></span>
-        <span>連続正解: <b id="streak">0</b></span>
+    <div class="row" style="justify-content:space-between;">
+      <div>
+        <h1 style="margin-bottom:6px;">臨床検査技師 国試クイズ</h1>
+        <div class="row" style="gap:12px; align-items:center;">
+          <select id="tagFilter" title="分野フィルタ"><option value="">全分野</option></select>
+          <select id="yearFilter" title="年度フィルタ"><option value="">全年度</option></select>
+          <select id="modeSelect" title="モード">
+            <option value="all">全て</option>
+            <option value="wrong">間違えた問題のみ</option>
+            <option value="bookmarked">ブックマークのみ</option>
+          </select>
+          <button id="startBtn" class="primary">この条件で開始</button>
+          <button id="shuffleBtn" class="ghost">並び替え</button>
+          <span class="badge">進捗: <b id="progressNum">0/0</b></span>
+          <span class="badge">正答率: <b id="accuracy">0%</b></span>
+          <span class="badge">連続正解: <b id="streak">0</b></span>
+        </div>
+        <div class="row" id="examCountdownWrap" style="gap:12px; align-items:center; margin-top:6px;">
+          <span>次回試験日: <b>2026/02/18</b></span>
+          <span id="countdown" style="font-weight:bold;">残り -- 日</span>
+        </div>
       </div>
-
-      <div class="nav-right">
+      <div class="header-right">
         <button id="toStatsBtn" class="ghost">成績・弱点</button>
       </div>
     </div>
-
-    <div class="row" id="examCountdownWrap" style="gap:12px; align-items:center;">
-      <span>次回試験日: <b>2026/02/18</b></span>
-      <span id="countdown" style="font-weight:bold;">残り -- 日</span>
-    </div>
     <div class="progress"><span id="progressBar"></span></div>
-    <div class="notice">※ 成績はこの端末の中だけに保存されます（サーバには送信されません）。</div>
+    <span class="notice center">※ 成績はこの端末の中だけに保存されます（サーバには送信されません）。</span>
   </div>
 </header>
 
 <main class="container">
 
-  <!-- Top -->
+  <!-- Top View -->
   <section id="viewTop" class="view active">
     <div class="card">
-      <p>年度・分野で絞り込んで「この条件で開始」を押してください。画像付き・複数正解に対応しています。</p>
-      <p id="resumeInfo" class="notice">（まだ回答履歴はありません）</p>
-      <div style="text-align:center;">
+      <p>年度・分野で絞り込んで「この条件で開始」を押してください。画像付き・複数正解の問題にも対応しています。</p>
+      <p id="resumeInfo" class="notice center">（まだ回答履歴はありません）</p>
+      <div style="text-align:center;margin-top:8px;">
         <button id="resumeBtn" class="primary hidden">前回の続きから</button>
-        <button id="goStatsBtn" class="ghost">成績・弱点を見る</button>
       </div>
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 6px;">最近の成績（要約）</h3>
+      <div id="topSummary">—</div>
     </div>
   </section>
 
-  <!-- Quiz -->
+  <!-- Quiz View -->
   <section id="viewQuiz" class="view">
     <div class="card" id="quizCard">
       <div class="row" style="justify-content:space-between;margin-bottom:8px;">
         <div><b id="qid">---</b></div>
         <button id="bookmarkBtn" class="ghost">☆ ブックマーク</button>
       </div>
-      <h2 id="questionText" style="margin:6px 0 0; font-size:18px;"></h2>
+      <h2 id="questionText" style="margin:6px 0 0 0; font-size:18px;"></h2>
       <img id="qImage" class="hidden" alt="">
       <div id="tagsWrap" class="row"></div>
       <div id="choices" style="margin-top:8px;"></div>
@@ -114,63 +114,69 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:24px}
     </div>
   </section>
 
-  <!-- End / Result -->
+  <!-- End (Results) View -->
   <section id="viewEnd" class="view">
     <div class="card" style="text-align:center;">
       <h2>結果</h2>
-      <div class="kpi">
-        <div class="box"><div>正答率</div><div style="font-size:28px;"><b id="finalAccuracy">0%</b></div></div>
-        <div class="box"><div>正解数 / 出題数</div><div style="font-size:22px;"><b id="finalCounts">0 / 0</b></div></div>
-        <div class="box"><div>最終回答</div><div style="font-size:16px;"><b id="finalDate">--</b></div></div>
+      <p>今回の正答率：<b id="finalAccuracy">0%</b></p>
+      <p><span id="finalCounts">—</span></p>
+      <p id="finalDate" class="notice center"></p>
+      <p id="finalDuration" class="notice center"></p>
+
+      <div id="finalWeakness" style="margin-top:12px;text-align:left;">
+        <h3 style="margin:0 0 6px;">今回の弱点（分野・年度）</h3>
+        <div id="weaknessList">—</div>
       </div>
 
-      <div style="margin-top:12px;">
-        <span class="badge" id="finalFilterInfo">条件: 全年度 / 全分野</span>
-      </div>
-
-      <div style="margin-top:16px;">
-        <button id="retryWrongBtn" class="ghost">間違いだけで再挑戦</button>
-        <button id="retryAllBtn" class="primary">同じ条件で再挑戦</button>
-        <button id="toStatsFromEndBtn" class="ghost">成績・弱点を見る</button>
-      </div>
-
-      <div style="margin-top:16px;text-align:left;">
-        <h3 style="margin:6px 0;">苦手分野（今回）</h3>
-        <table class="table">
-          <thead><tr><th>タグ</th><th>正解 / 解答</th><th>正答率</th></tr></thead>
-          <tbody id="endWeakTags"></tbody>
-        </table>
-      </div>
-
-      <div class="row" style="justify-content:center;margin-top:16px;">
-        <button id="backHomeBtn" class="ghost">トップページに戻る</button>
+      <div class="row" style="justify-content:center;margin-top:12px;">
+        <button id="backHomeBtn" class="primary">トップページに戻る</button>
+        <button id="toStatsBtn2" class="ghost">成績・弱点を見る</button>
       </div>
     </div>
   </section>
 
-  <!-- Stats / Weakness -->
+  <!-- Stats View -->
   <section id="viewStats" class="view">
     <div class="card">
-      <h2>成績・弱点</h2>
-      <p class="notice">端末内の履歴から自動集計します。</p>
+      <h2 style="margin-top:0;">成績・弱点</h2>
+      <p class="notice center">この端末の学習履歴から自動集計しています。</p>
+      <div id="statsOverview">—</div>
 
-      <div class="kpi">
-        <div class="box"><div>総解答数</div><div style="font-size:24px;"><b id="statTotal">0</b></div></div>
-        <div class="box"><div>総正答率</div><div style="font-size:24px;"><b id="statAccuracy">0%</b></div></div>
-        <div class="box"><div>最終回答</div><div style="font-size:16px;"><b id="statLast">--</b></div></div>
-      </div>
-
-      <h3 style="margin-top:16px;">タグ別の成績</h3>
-      <table class="table">
-        <thead><tr><th>タグ</th><th>正解 / 解答</th><th>正答率</th></tr></thead>
-        <tbody id="statsTable"></tbody>
+      <h3>分野別 成績</h3>
+      <table id="statsByTagTbl">
+        <thead><tr><th>分野</th><th>正答率</th><th>正解/回答</th></tr></thead>
+        <tbody></tbody>
       </table>
 
-      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
-        <button id="practiceWeakBtn" class="primary">弱点タグを優先して練習</button>
-        <button id="resetHistoryBtn" class="ghost">履歴をリセット</button>
-        <span id="resetDone" class="badge hidden">リセットしました</span>
+      <h3 style="margin-top:16px;">年度別 成績</h3>
+      <table id="statsByYearTbl">
+        <thead><tr><th>年度</th><th>正答率</th><th>正解/回答</th></tr></thead>
+        <tbody></tbody>
+      </table>
+
+      <div style="margin-top:16px;" class="row">
+        <button id="reviewWrongsBtn" class="primary">間違えた問題だけでやり直す</button>
+        <button id="reviewBookmarksBtn" class="ghost">ブックマークだけでやる</button>
+        <button id="resetStatsBtn" class="ghost" title="全ての履歴を消去">学習履歴をリセット</button>
       </div>
 
-      <div style="margin-top:16px;">
-        <span class="linklike" id="backTopLink">← トップ
+      <div style="margin-top:8px;">
+        <button id="backTopBtn" class="linklike">← トップへ戻る</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>© 2025 H.Ueno</footer>
+
+<script src="./app.js?v=10"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js');
+    });
+  }
+</script>
+</body>
+</html>
