@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_VERSION = 'v22';
+const CACHE_VERSION = 'v23';
 const CACHE_NAME = `quiz-cache-${CACHE_VERSION}`;
 const URLS_TO_CACHE = [
   './',
